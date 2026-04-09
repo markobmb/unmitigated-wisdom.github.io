@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unmitigated Wisdom — Threaded Prediction Ledger</title>
+<style>
+:root { --bg:#fafaf7;--fg:#1a1a1a;--muted:#6b6b6b;--accent:#b8342f;--border:#e5e2d9;--card:#ffffff;--photo-bg:#f4f1e8;--thread-line:#d6d0bf; }
+*{box-sizing:border-box;}
+body{margin:0;font-family:ui-serif,Georgia,'Iowan Old Style','Palatino Linotype',serif;background:var(--bg);color:var(--fg);line-height:1.65;font-size:17px;}
+.wrap{max-width:860px;margin:0 auto;padding:60px 24px 120px;}
+header.site{border-bottom:2px solid var(--fg);padding-bottom:24px;margin-bottom:40px;}
+h1{font-size:2.4rem;margin:0 0 8px;letter-spacing:-0.01em;}
+.tagline{color:var(--muted);font-style:italic;margin:0 0 12px;}
+.channel-link{display:inline-block;color:var(--accent);text-decoration:none;font-family:ui-sans-serif,system-ui,sans-serif;font-size:0.9rem;font-weight:600;}
+.channel-link:hover{text-decoration:underline;}
+.intro{background:var(--card);border:1px solid var(--border);padding:18px 22px;margin-bottom:40px;border-radius:4px;font-size:0.95rem;color:var(--muted);}
+.intro .legend{display:flex;gap:20px;margin-top:10px;flex-wrap:wrap;font-size:0.85rem;}
+.intro .legend-item{display:flex;align-items:center;gap:6px;}
+.intro .legend .badge{display:inline-block;background:#fbeceb;color:var(--accent);padding:1px 7px;border-radius:3px;font-weight:700;font-family:ui-sans-serif,system-ui,sans-serif;}
+h2.year{font-family:ui-sans-serif,system-ui,sans-serif;text-transform:uppercase;letter-spacing:0.15em;font-size:0.85rem;color:var(--muted);border-top:1px solid var(--border);padding-top:32px;margin:48px 0 20px;}
+h2.year:first-of-type{border-top:none;padding-top:0;margin-top:0;}
+.post{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:22px 26px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,0.02);}
+.post.depth-0{margin-bottom:18px;}
+.post-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;font-family:ui-sans-serif,system-ui,sans-serif;font-size:0.8rem;color:var(--muted);margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border);}
+.reply-arrow{color:var(--accent);font-size:1.05rem;margin-right:-6px;}
+.msgnum{font-weight:700;color:var(--accent);text-decoration:none;background:#fbeceb;padding:2px 8px;border-radius:3px;}
+.msgnum:hover{background:var(--accent);color:white;}
+.post-head time{font-variant-numeric:tabular-nums;}
+.permalink{margin-left:auto;color:var(--muted);text-decoration:none;}
+.permalink:hover{color:var(--accent);}
+.text{white-space:normal;}
+.text a{color:var(--accent);word-break:break-all;}
+.photo{margin-top:16px;background:var(--photo-bg);border-left:3px solid var(--accent);padding:14px 18px;border-radius:0 4px 4px 0;font-size:0.93rem;}
+.photo-label{font-family:ui-sans-serif,system-ui,sans-serif;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:8px;font-weight:600;}
+.photo-body table{border-collapse:collapse;width:100%;margin:8px 0;font-size:0.85rem;font-family:ui-sans-serif,system-ui,sans-serif;}
+.photo-body th,.photo-body td{border:1px solid var(--border);padding:5px 9px;text-align:left;}
+.photo-body th{background:#e9e4d4;font-weight:600;}
+.photo-body ul{margin:6px 0;padding-left:20px;}
+.photo-body li{margin:3px 0;}
+.thread-children{position:relative;margin-left:28px;padding-left:22px;border-left:2px solid var(--thread-line);margin-top:0;margin-bottom:14px;}
+.thread-children .post{background:#fdfcf8;font-size:0.96rem;}
+.thread-children .thread-children .post{background:#fbf9f3;}
+.thread-children .thread-children .thread-children .post{background:#faf7ee;}
+footer.site{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:0.85rem;font-family:ui-sans-serif,system-ui,sans-serif;}
+@media (max-width:680px){.wrap{padding:30px 14px 80px;}h1{font-size:1.8rem;}.post{padding:16px 16px;}.thread-children{margin-left:12px;padding-left:14px;}.permalink{margin-left:0;width:100%;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="site">
+<h1>Unmitigated Wisdom</h1>
+<p class="tagline">A prediction ledger — geopolitics, markets, and whatever the model says next.</p>
+<a class="channel-link" href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener">t.me/unmitigated_wisdom →</a>
+</header>
+<div class="intro">
+Every substantive post from the channel, March 2020 to April 2026, threaded so that follow-ups, validations, and related updates appear as replies under the original prediction. Each entry links back to its source Telegram post via the message number (<span class="badge">#N</span>).
+<div class="legend">
+<div class="legend-item"><span class="badge">#N</span> click to open original post</div>
+<div class="legend-item"><span style="color:var(--accent)">↳</span> indented reply / follow-up</div>
+<div class="legend-item">📷 inline photo transcription</div>
+</div>
+</div>
+<h2 class="year">2020</h2>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/3" target="_blank" rel="noopener">#3</a>
+<time>13 Mar 2020 · 22:19</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/3" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Only theoretical frameworks that predict the future, can be taken seriously in describing the past. Following this thesis, this is channel is dedicated to making predictions about major political and geopolitical events.</div>
+</article>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/6" target="_blank" rel="noopener">#6</a>
+<time>13 Mar 2020 · 22:51</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/6" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Wisdom of the day: in the short term, the stock markets will experience another big sell-off if the US death toll increases similar to Italy. But eventually, perhaps in a month or so, the reported cases and death rate will go down, coinciding with the the widespread fears subsiding. This will be followed by recover some of their loss.<br>In the mid-term, there will be several major sell-offs and market crashes, when IMF, ECB, Chinese, and US government announce their gloomy economical indicators, such as negative or near-zero quarterly GDP growth.<br>In the longer term, 1-1.5 year from now, it will become clear that the dooms day scenarios about cronavirus have not materialized, and its dmaage has not cut deeply. Once it becomes clear the fundamentals of economies are still standing, there will be a complete recovery of the lost profits, possibly getting back to the highs of one month ago.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/24" target="_blank" rel="noopener">#24</a>
+<time>9 May 2020 · 12:12</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/24" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The prediction from March 14th has been quite accurate: As predicted in the first paragraph, there were major drops in US markets coinciding with case reports, followed by partial recoveries when the statistics of cases stabilized. <br>The second paragraph is partially accurate so far: unemployment statistics and oil prices indicate that a major depression glooms over the economy. We have to wait and see how the markets react</div>
+</article>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/8" target="_blank" rel="noopener">#8</a>
+<time>14 Mar 2020 · 11:30</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/8" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Despite the loss and suffering, we ought to learn an important lesson from the cronavirus outbreak: that if the boat sinks, we all sink with it. This is an undeniable proof of how gloomy the world prospects could get, when disasters strike that we are unprepared to deal with. That&#x27;s exactly the kinds of disasters that global warming will bring.</div>
+</article>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/9" target="_blank" rel="noopener">#9</a>
+<time>18 Mar 2020 · 16:16</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/9" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">World&#x27;s GDP growth is likely to be near-zero or negative for 2020, the worst being European economies shrinking 2%-5%, and the best will be far eastern countries</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/18" target="_blank" rel="noopener">#18</a>
+<time>25 Mar 2020 · 05:26</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/18" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">gloomier outlook. The world GDP growth will be -5% to -2%, Italy&#x27;s GDP growth -10% or worse, regions most hit in italy were also the highest income ones (Veneto and Lambardi), together accounting for nearly 40% of Italy&#x27;s economy, add the domino effect and ... no bottom</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/41" target="_blank" rel="noopener">#41</a>
+<time>7 Jul 2020 · 17:25</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/41" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The European commission report validates a slow recovery: negative 8.7%  GDP growth in 2020, bouncing up 6.1% in 2021=&gt; by end of 2021 EU is still not back to its pre-ourbreak, even assuming a second wave won&#x27;t cause widespread shutdowns.<br><a href="https://m.dw.com/en/eu-faces-deeper-recession-than-expected-european-commission/a-54076999" target="_blank" rel="noopener">https://m.dw.com/en/eu-faces-deeper-recession-than-expected-european-commission/a-54076999</a></div>
+</article>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/10" target="_blank" rel="noopener">#10</a>
+<time>19 Mar 2020 · 16:21</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/10" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">There is an upcoming stimulus package in US, whatever they call it it&#x27;s a bailout, for the &quot;too big to fail&quot; corporations, they include Boing, Exxon, Chevron, to name a few, their stock will immediately go up as a result, whether it&#x27;s a short lived bounce or will persist depends on the US response to the pandemic</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/11" target="_blank" rel="noopener">#11</a>
+<time>19 Mar 2020 · 16:25</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/11" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Forgot the big airliners, American airlines will be bailed out for sure, and its stock will surge back immediately</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/14" target="_blank" rel="noopener">#14</a>
+<time>24 Mar 2020 · 17:25</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/14" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">as predicted, after the 2-trilion dolor bailout was signed, stocks boosted up, and the companies predicted here hugely outperformed the indices. Here you go</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/16" target="_blank" rel="noopener">#16</a>
+<time>24 Mar 2020 · 17:29</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/16" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="photo"><div class="photo-label">📷 Photo 1</div><div class="photo-body"><strong>Four stock screenshots (COVID-crash rebound day, 24 Mar ~12:19–12:22 GMT-4):</strong><ul>
+<li><strong>Chevron Corp (NYSE: CVX):</strong> $64.01 USD, +$9.79 (+18.06%) ↑</li>
+<li><strong>American Airlines (NASDAQ: AAL):</strong> $14.38 USD, +$4.13 (+40.29%) ↑</li>
+<li><strong>Boeing Co (NYSE: BA):</strong> $123.09 USD, +$17.47 (+16.54%) ↑</li>
+<li><strong>Dow Jones Industrial Average (.DJI):</strong> 20,270.29, +1,678.36 (+9.03%) ↑</li></ul></div></div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/19" target="_blank" rel="noopener">#19</a>
+<time>25 Mar 2020 · 21:22</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/19" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The bailout is guaranteed to happen, but it has to pass the Congress and be signed, it&#x27;s only an emotional reaction, but when the bill is actually signed there will be a temporary surge</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/20" target="_blank" rel="noopener">#20</a>
+<time>26 Mar 2020 · 15:52</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/20" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Indices are 5% up based on the expectation that 2.2T$ stimulus package will be signed, the moment it&#x27;s signed indices will surge +10%-15%, Reports show some provisions carve out hundreds billions for a few companies (plane, airliner, shale oil, post, hotel), they will outperform indices</div>
+</article>
+</div>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/12" target="_blank" rel="noopener">#12</a>
+<time>20 Mar 2020 · 14:48</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/12" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Senator Richard Burr will resign from his position</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/29" target="_blank" rel="noopener">#29</a>
+<time>14 May 2020 · 19:08</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/29" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">new development regarding this prediction: he is stepping down from senate intelligence chairmanship, and won&#x27;trun for reelection, but he won&#x27;t resign from the seat before end of his term, since if he resigns he will be temporarily replaced by a Democrat by the governor</div>
+</article>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/17" target="_blank" rel="noopener">#17</a>
+<time>24 Mar 2020 · 17:53</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/17" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Caution: people don&#x27;t eat money or get cured by stockpiling it, if the status quo persists for more than 6 months, the economies might collapse, unlikely but its prospect can lead to turbulent phases</div>
+</article>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/22" target="_blank" rel="noopener">#22</a>
+<time>29 Mar 2020 · 23:01</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/22" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Main indices (S&amp;P 500 &amp; Dowjones) will drop 5±3% when they open Monday morning, because (1) Markets have already absorbed any positive news about the stimulus (signed Friday afternoon), and may be in correction (2) growth of cases and death toll over the weekend in US are raising red flags (3) Trump&#x27;s admin.&#x27;s crisis management  seems inconsistent and chaotic -&gt; markets may react negatively, as short to midterm prospects seem gloomier</div>
+</article>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/25" target="_blank" rel="noopener">#25</a>
+<time>9 May 2020 · 12:24</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/25" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">If you&#x27;re looking for investments with 50%-80% returns for a 1-2 year window, oil and gas companies like Exxon are a safe bet: (1) the world economy WILL need oil very soon (2)  the technology accumulated in these companies won&#x27;t go anywhere. Even if they go close to bankruptcy, they will resurrect one way or another.</div>
+</article>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/26" target="_blank" rel="noopener">#26</a>
+<time>11 May 2020 · 10:07</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/26" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Unemployment rate in US has hit its the highest on record, and seems to be on the rise. A solid majority of American electorate will simplify the complex crisis to a simple reasoning: blame the president as the highest profile politician. Conclusion: Trump&#x27;s reelection chances will be negatively affected.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/27" target="_blank" rel="noopener">#27</a>
+<time>14 May 2020 · 16:13</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/27" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Trump&#x27;s reelection chances are lower than what many believe. The 2016 election upset is one of the reasons, many think of him as if he possesses supernatural powers. This is an overreaction. The reality, however, is that his winning margin in 2016 in the swing states was razor-thin: not only Clinton had 3mil more votes, a shift of 200k votes in 3 states could have swung the election. With the current outbreak having its real negative impact till the election day, and biden leading him nationally and in the swing states, Biden is currently the favourite to win.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/34" target="_blank" rel="noopener">#34</a>
+<time>6 Jun 2020 · 12:33</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/34" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">There&#x27;s an unprecedented consensus among Americans about death of George Floyd, overwhelming majorities view his death as racial injustice, including a plurality of Republicans are empathetic towards the protesters. This has coincided with a significant drop in Trump&#x27;s approval. This is hardly surprising, given that Trump ran on an unapologetic platform on racial justice, further weakening his reelection chances, right now less than 50% <a href="https://abcnews.go.com/Politics/74-americans-view-george-floyds-death-underlying-racial/story?id=71074422" target="_blank" rel="noopener">https://abcnews.go.com/Politics/74-americans-view-george-floyds-death-underlying-racial/story?id=71074422</a></div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/35" target="_blank" rel="noopener">#35</a>
+<time>6 Jun 2020 · 13:32</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/35" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The events around George FLoyd&#x27;s death have proven to be the kind of event that can have a long lasting effect on the electoral map of US. For one, there are many white protesters, as a sign that the sentiments against economic and racial injustice, are joining together. Trump has lost the non-white vote already, but if he loses the working class vote, he&#x27;ll lose Wisconsin, Michigan, and Pennsylvania, and he&#x27;s sure to lose the election.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/36" target="_blank" rel="noopener">#36</a>
+<time>21 Jun 2020 · 13:22</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/36" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Trump has experienced another series of setbacks: mismanagement of corona seems to have put the US on a different trajectory than most countries, John Bolton&#x27;s book will be be published despite Trump legal battle and validate much of the speculation about Trump from a staunch Republican insider, and polling margin between Biden vs. Trump is widening, 9point on average. His path to reelection is more treacherous than ever. If election were held today, he would surely lose.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/37" target="_blank" rel="noopener">#37</a>
+<time>21 Jun 2020 · 13:31</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/37" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">To put things in context, Clinton had a 3 point narional margin but lost due to her underperformance in swing states, a 6 point average national margin is a guaranteed win for Biden, and a 7+ margin is a landslide win plus taking back the Senate for Democrats. Trump is not immune to simple math.</div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/38" target="_blank" rel="noopener">#38</a>
+<time>26 Jun 2020 · 00:34</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/38" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">POLITICS (if you&#x27;re only interested in market predictions, you can ignore the post) 1) Biden&#x27;s lead over Trump is more stable than Clinton&#x27;s over Trump: opinions about Biden and Trump have hardened over 12 years and Trump is not a wildcard, therefore swings are less likely than 2016. This is partially validated by the fact that Biden&#x27;s lead has been consistently 6% till recently 2) Biden is performing surprisingly well in key swing stages (Wisconsin, Pennsylvania, Michigan), on par with or even better than his national lead, that are &quot;must-win&quot; states for Trump. There goes Trump&#x27;s electoral advantage 3) Biden&#x27;s gaffes have been a big drag for his campaign and COVID19 has provided his campaign with a convenient explanation to reduce his public appearances, 4) This also puts Trump&#x27;s campaign in the uncomfortable position of holding rallies in places were number of COVID19 cases is on the rise: If many showed up-&gt; they put lives at risk, if no one showed up -&gt; they&#x27;re loosing their enthusiastic supporters</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/39" target="_blank" rel="noopener">#39</a>
+<time>26 Jun 2020 · 00:47</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/39" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">5) The largest threat to Trump&#x27;s reelection is this: Biden seems to have multiple paths to presidency. In other words, there are many combinations of states that Biden can win in order to reach 270 electoral college votes involving multiple economical, racial, and ethical sectors of the society.  Trump has to fight on multiple fronts and win all of them to block Biden&#x27;s paths presidency. Conclusion: Trump reelection odds are lower than 60% now. A lot has to happen for Trump to win.</div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/42" target="_blank" rel="noopener">#42</a>
+<time>9 Jul 2020 · 17:00</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/42" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">POLITICS: undecided voters can swing an election by strongly favouring one candidate. So an important indicator is if one candidate cracks 50% marking in polls. This is currently the case for Biden, further narrowing Trump&#x27;s path to victory. Most prediction markets currently favour Biden by 60% chance, and Goldman Sachs has rated Trump&#x27;s reelection below 49%. Also, Trump&#x27;s campaign is spending millions in ads in Republican strongholds like Georgia, indicating that they&#x27;re not considered as safe anymore.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/47" target="_blank" rel="noopener">#47</a>
+<time>2 Nov 2020 · 18:55</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/47" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Surely the biggest wildcard  has to be the pandemic, and its possible effects on the electorates. Having said that, applying the common sense, the pandemic should hurt Trump rather than help him. A second point, is that polls and statistics are not certainty! Intuitively, 10% chance of winning is roughly the chance of having a full house in poker, which is a rare event, but as you know .. it might happen!</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/48" target="_blank" rel="noopener">#48</a>
+<time>2 Nov 2020 · 18:59</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/48" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">My gut feeling (combining polls and common sense): Biden will win with 6-10% of popular vote margin, and wtih (330-370) electoral college votes</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/49" target="_blank" rel="noopener">#49</a>
+<time>12 Nov 2020 · 17:07</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/49" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Biden is projected to win 306 electoral votes, and win the popular vote with a margin of 4%-5% after all votes are counted. that&#x27;s outside of the predicted intervals, but not too far either.</div>
+</article>
+</div>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/28" target="_blank" rel="noopener">#28</a>
+<time>14 May 2020 · 18:30</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/28" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Roche is a good mid-to-long term investment, because Genentech, a subsidiary of Roche, has hired Aviv Rajev and Mark McCarthy, two leading geneticists, signs that they are  expanding their research and development, plus, and they&#x27;ve announced human antibody trials cov-19 partnering with UK government.</div>
+</article>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/30" target="_blank" rel="noopener">#30</a>
+<time>25 May 2020 · 11:46</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/30" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The unemployment statistics show that around 90% of the unemployment statistics reflect the temporary loss of jobs, so in the next 1-2 month, many business will reopen and the unemployment rate will go down substantially, and stock markets will follow. There is a catch: timeline of recovery is worse for less essential businesses, and of course, they have to be able to sustain financial damages, or otherwise risk bankruptcy. So to be safe, buy indices, or those related to the essential parts of the economy (food, medicine, energy, etc)</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/31" target="_blank" rel="noopener">#31</a>
+<time>5 Jun 2020 · 20:10</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/31" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">this prediction came true: the US unemployment rate drops to 13% and the markets have reacted positively:<br><a href="https://www.washingtonpost.com/business/2020/06/05/may-2020-jobs-report/" target="_blank" rel="noopener">https://www.washingtonpost.com/business/2020/06/05/may-2020-jobs-report/</a></div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/33" target="_blank" rel="noopener">#33</a>
+<time>5 Jun 2020 · 20:13</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/33" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="photo"><div class="photo-label">📷 Photo 2</div><div class="photo-body"><strong>Washington Post headline</strong> — Business section: "Dow soars 1,000 points as Wall Street closes in on pre-pandemic levels"</div></div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/40" target="_blank" rel="noopener">#40</a>
+<time>2 Jul 2020 · 18:04</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/40" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">an update on US unemployment rate: US has added 4.5 million jobs in June, which validates the predicted sharp decline. Yet most economists predict a second phase of much slower recovery, between 1-2 years. In plain words, many people will be hesitant to spend money on non-essential items/habits, which will lower growth. <br><a href="https://www.washingtonpost.com/business/2020/07/02/june-2020-jobs-report/?arc404=true" target="_blank" rel="noopener">https://www.washingtonpost.com/business/2020/07/02/june-2020-jobs-report/?arc404=true</a></div>
+</article>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/43" target="_blank" rel="noopener">#43</a>
+<time>10 Jul 2020 · 11:31</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/43" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Without extension of the unemployment benefits of the stimulus package, US economic recovery may be derailed, but the looming elections may stop congress from taking action: Republicans hate welfare programs and Democrats hate tax cuts, so the chances of a deal are 50%-50%. Will update once more info is available.<br><a href="https://fivethirtyeight.com/features/economists-think-congress-could-create-an-economic-disaster-this-summer/" target="_blank" rel="noopener">https://fivethirtyeight.com/features/economists-think-congress-could-create-an-economic-disaster-this-summer/</a></div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/44" target="_blank" rel="noopener">#44</a>
+<time>7 Aug 2020 · 15:14</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/44" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Despite the theatrics between white house and Congress, the weekly payments to US households will mostly be extended,  and the deal is most likely to be reached during the next week, or at most in two weeks, due to the damage any delay will do to the economy. <br>The stockmarkets will respond positively because these payments will keep small businesses economically afloat, so they can slowly rehire their employees, and the unemployment rate would gradually decline.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/46" target="_blank" rel="noopener">#46</a>
+<time>11 Aug 2020 · 18:42</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/46" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">this prediction that has already materialised, and the upturn seems to stem from investors betting that the new stimulus would be agreed upon by Democrats and Republicans in US. We will have to wait to see if these bets come true. <br><a href="https://m.economictimes.com/markets/stocks/news/dow-jones-nears-record-high-on-stimulus-bets/articleshow/77486819.cms" target="_blank" rel="noopener">https://m.economictimes.com/markets/stocks/news/dow-jones-nears-record-high-on-stimulus-bets/articleshow/77486819.cms</a></div>
+</article>
+</div>
+</div>
+<h2 class="year">2021</h2>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/50" target="_blank" rel="noopener">#50</a>
+<time>22 Feb 2021 · 12:21</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/50" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">A cautious prediction: Price of BTC and other cryptocurrencies will experience a correction sooner or later (emphasis on sooner): major players enjoy the fluctuations by stirring up the market by all means, and make guaranteed gains by selling and buying in the ideal time. The 2trillion dollar market cap is still within the range of manipulation. The recent tweet by Elon Musk that BTC is too high might be a high-profile case, but lower-profile cases of influencing the market in the desired direction have been prevalent for years. Unless the market cap is just too big to be manipulated, these massive hikes and correction in the crypto will continue to repeat themselves<br>I may add that this prediction only regards short to mid-term. The new baseline after correction could very well be higher than previous all-time-high. The only prediction here is that the prices will experience a big correction before experiencing another surge.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/51" target="_blank" rel="noopener">#51</a>
+<time>19 May 2021 · 16:05</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/51" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Since the time of last post on Febtuary 22, the crypto market cap has shrunk by 35%. mega-whales like Musk, and Governments in US and China are sure to do their shots to manipulate prices to their benefit. This spells a great deal of vollatility, which increases their risk, and make big money less willing to invest. Crypto&#x27;s longterm prospects remain very positive, but investing now might lock up their money for 2-3 years.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/52" target="_blank" rel="noopener">#52</a>
+<time>19 May 2021 · 16:30</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/52" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The biggest wildcard is the ETH2 implementation, and the short-term fate of crypto market depends on it: if  implemented successfully ETH price will skyrocket and push the entire market to new highs, if the implementation is botched it will spell disaster for all, and if it&#x27;s delayed the market will settle at the neighborhood of/lower than where it stands now.   <br>But the long-term factor is surely energy. The political landscape and public opinion has shifted very swiftly regarding energy. If bitcoin miners cannot prove their energy sources are clean, a less energy-hungry coin will take the reins from bitcoin.</div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/55" target="_blank" rel="noopener">#55</a>
+<time>25 Jun 2021 · 16:21</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/55" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Since the time of this post, bitcoin and other cryptos have lost nearly half their value, rendering it as a correct prediction. <br>That said, it is only a question of when, not if, bitcoin will surpas 100k$ value. This is best illustrated by the price targets of JP morgan for bitcoin, an admission that the path for crytpos may be hindered, but they cannot be stopped.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/56" target="_blank" rel="noopener">#56</a>
+<time>16 Jul 2021 · 00:03</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/56" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">People often associate government crackdowns with loss of value in crypto market. However, crackdowns decrease number of miners, lower hash difficulty, and thereby increase the reward for those who take risk. This is similar to other cases of law enforcement, eg. drugs are more expensive due to risk of arrest, incentivizing dealers to take that risk. but digital operations are much easier to cover up. <br>This logic also applies on a global scale. If 90% of countries enforce mining bans, they increase the reward for the other 10%, incentivizing them to continue their mining. <br>The only way this cycle could break is 1) if the miners are so few that the network becomes vulnerable to double spending. 2) the negative image (dirty mining) causes such a public backlash that will counter the limited supply.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/75" target="_blank" rel="noopener">#75</a>
+<time>17 Nov 2022 · 10:09</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/75" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Putting the criminal aspects of FTX aside, it was headed towards bankruptcy. FTX&#x27;s only product was swooning money that people didn’t know what to do with, and gamble with it. This is substantiated by the fact that market cap of crypto is correlated with inflation (while Gold is anti-correlated) implying that craze the decentralised “inventions”, simply absorbed the surplus liquidity in the global markets (in particular the covid-relief money).  So they were crushed with the downturn trend in the markets.<br>Bitcoin, as digital gold, and Ethereum or other protocols as transparent contracts, could become popular again. But they can only do so with making sensible and not sensational arguments. This was a much needed correction.</div>
+</article>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/53" target="_blank" rel="noopener">#53</a>
+<time>27 May 2021 · 11:11</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/53" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">I will start to write more on energy, particularly about the transition to renewable energies and what it implies for industries and markets. There was never any doubt our supply of energy will go through an unprecedented change in the next decades, but the change seems to be swifter than most expected. Just recently, Exxon took two climate activists on their board (<a href="https://nyti.ms/3yJVUl2)," target="_blank" rel="noopener">https://nyti.ms/3yJVUl2),</a> and the Dutch court ruled against shell (<a href="https://cnb.cx/3vwoIeY)." target="_blank" rel="noopener">https://cnb.cx/3vwoIeY).</a> <br>Both auto and energy industries have matured over a century, but maturity comes with sluggishness. They cannot adapt to a fast-changing environment. So the long-term trend is surely against the current auto and energy giants, and in favor of the new ones. So, better watch for tech companies in renewable energy sector</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/64" target="_blank" rel="noopener">#64</a>
+<time>30 Oct 2021 · 08:52</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/64" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The new deal, expected to be approved 1 week from now, will invest 500B$ new spending in renewable energies such as solar lanels, electric vehicles, and other climate related sectors.  <br><a href="https://www.washingtonpost.com/us-policy/2021/10/29/biden-democrats-spending-deal/" target="_blank" rel="noopener">https://www.washingtonpost.com/us-policy/2021/10/29/biden-democrats-spending-deal/</a></div>
+</article>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/54" target="_blank" rel="noopener">#54</a>
+<time>17 Jun 2021 · 14:19</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/54" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">I&#x27;ve been long worried about a &quot;smart Trump&quot;. Someone possessing all his strengths, his unabashed &amp; authentic style, without any of his vulnerabilities. And I believe that Musk comes dangerously close to such criteria: Musk&#x27;s penchant for engaging in Twitter fights (remember the &quot;pedo guy&quot; incident?), the cult of personality built around his companies, his ruthless and self-serving style, are all reminiscent of Trump. However, his undeniable intelligence and achievements set him worlds apart from Trump. I&#x27;m still willing to give him the benefit of the doubt, that he will transition to post-Microsoft Bill Gates at some point.</div>
+</article>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/57" target="_blank" rel="noopener">#57</a>
+<time>29 Jul 2021 · 02:23</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/57" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">US senate has indicated that it&#x27;s close to a deal on infrastructure that will pump ~1T $ into industrial, broadband and communication sectors. This will push several stocks up, such as Astec Industries,  Martin Marietta Materials,  Construction Partners that build roads , or  Caterpillar &amp; , Manitowoc that build machinery. There are smaller pieces of the bill such as 50B$ set aside for electric charging stations that could positively affect the electric car sector.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/58" target="_blank" rel="noopener">#58</a>
+<time>16 Aug 2021 · 17:31</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/58" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Since the time of last post on July 19th, the companies mentioned in the post have experienced between 4%-23% increase in their stock value, largely outperforming the indices in the same window (2% for Dow Jones), which validates the prediction.</div>
+<div class="photo"><div class="photo-label">📷 Photo 3</div><div class="photo-body"><strong>Martin Marietta Materials, Inc.</strong> — $383.22 USD, +$31.72 (+9.03%) ↑ past month · 16 Aug, 11:09 GMT-4</div></div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/59" target="_blank" rel="noopener">#59</a>
+<time>16 Aug 2021 · 17:31</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/59" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="photo"><div class="photo-label">📷 Photo 4</div><div class="photo-body"><strong>Caterpillar Inc.</strong> — $216.75 USD, +$8.80 (+4.23%) ↑ past month · 16 Aug, 11:24 GMT-4</div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/60" target="_blank" rel="noopener">#60</a>
+<time>16 Aug 2021 · 17:31</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/60" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="photo"><div class="photo-label">📷 Photo 5</div><div class="photo-body"><strong>Astec Industries, Inc.</strong> — $61.82 USD, +$3.27 (+5.58%) ↑ past month · 16 Aug, 11:06 GMT-4</div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/61" target="_blank" rel="noopener">#61</a>
+<time>16 Aug 2021 · 17:31</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/61" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="photo"><div class="photo-label">📷 Photo 6</div><div class="photo-body"><strong>Manitowoc Company Inc</strong> — $25.99 USD, +$4.85 (+22.94%) ↑ past month · 16 Aug, 11:15 GMT-4</div></div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/62" target="_blank" rel="noopener">#62</a>
+<time>16 Aug 2021 · 17:50</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/62" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">On the same note, a sweeping 3.5T$ bill that is very likely to be passed, will touch on almost every sector of the US economy, most importantly 135B$ for agriculture, 330B$ for housing affordability, 198B$ for clean energy development, 67B$ for solar and other low-income energy technologies, and many other environmental spending. This will further boost stocks that intersect with industrial or clean energy sector. <br><a href="https://www.investopedia.com/here-s-what-s-in-the-usd1-trillion-infrastructure-bill-passed-by-the-senate-5196817" target="_blank" rel="noopener">https://www.investopedia.com/here-s-what-s-in-the-usd1-trillion-infrastructure-bill-passed-by-the-senate-5196817</a></div>
+</article>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/63" target="_blank" rel="noopener">#63</a>
+<time>27 Aug 2021 · 20:59</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/63" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">It has been a particularly devastating month for democrats in Washington. The ISIS attack on US forces is foreign policy nightmare every president want to avoid. It&#x27;s simply impossible that Biden won&#x27;t take a long-lasting hit from it. But if this wasn&#x27;t enough, the Gerry-mandering and re-canvasing is giving Republicans enough seats to tilt the House, and vote-restricting bills will make Senate election in Georgia a very uphill battle. If democrats lose both chambers, they&#x27;re heading to the next US election with nothing to show for. It doesn&#x27;t matter if Biden or Harris or whomever runs, as it stands democrats are the obvious underdogs.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/65" target="_blank" rel="noopener">#65</a>
+<time>3 Nov 2021 · 10:01</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/65" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">There is partial validation on this prediction with the democracts disasterous performance in Virginia and New Jersey. Without Trump motivating democratic base, they face an enthusiasm gap that is likely to continue until next election round, only ro be compounded with the new redistricting and voting laws that favour republicans<br><a href="https://www.washingtonpost.com/local/virginia-politics/virginia-governor/2021/11/02/ba9c3ccc-36b2-11ec-91dc-551d44733e2d_story.html" target="_blank" rel="noopener">https://www.washingtonpost.com/local/virginia-politics/virginia-governor/2021/11/02/ba9c3ccc-36b2-11ec-91dc-551d44733e2d_story.html</a></div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/70" target="_blank" rel="noopener">#70</a>
+<time>25 Jun 2022 · 09:31</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/70" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The overturning of abortion rights goes strongly against public opinion, so Democrats got themselves the biggest wildcard to save their slim majorities in congress. However, I tend to believe this won&#x27;t save their political fortunes: 1) the polls are national and strongly biased by populous liberal states, while midterm elections are local, held in many places where they&#x27;ve expressed anti-abortion rights numerous times 2) democrats have proved very inept at turning negative public sentiments to political ammunition. 3) If sentiments towards the economy even stay the same, they&#x27;re likely to override other matters.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/73" target="_blank" rel="noopener">#73</a>
+<time>6 Nov 2022 · 11:53</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/73" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Democrats are headed for disastrous midterm elections, with House all but guaranteed to fall to Republicans, Senate to be a 50-50 toss-up, and possibly other embarrassing outcomes (like New York governorship). This would have many consequences, including the very real prospect of Biden getting impeached, and Ukraine&#x27;s military aid being hindered by Republicans.</div>
+</article>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/66" target="_blank" rel="noopener">#66</a>
+<time>3 Nov 2021 · 13:20</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/66" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The fate of JCPOA is indirectly tied to democratic fortunes: without a solid Senate majority, Biden&#x27;s promises will fall short of legistlative assurances he needs to secure a new deal, and the window of opportunity is rapidly closing. Without a deal the tensions are guaranteed to spiral out of control.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/67" target="_blank" rel="noopener">#67</a>
+<time>19 Mar 2022 · 18:35</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/67" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The fate of JCPOA hangs in the balance again. And In an unforeseeable turn of events, Russia is the most likely party to prevent a deal. Iran&#x27;s oil and gas can increase the supply in the energy market, and limit the damage of the sanctions against Russia, which weakens Russian leverage. All that said, it is more likely than not (&gt;50%), that a new agreement will be reached in the next few days.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/71" target="_blank" rel="noopener">#71</a>
+<time>23 Aug 2022 · 22:17</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/71" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">While the agreement on JPPOA has been elusive for months, it seems to more reachable than ever before. If this prediction materialises, oil prices will surely plummet, as Iran can compensate about 50% of the decrease in oil and gas supply. This will have a domino effect on much of the world economy, with largely positive effects on the stock markets, and so indices will be a sure bet to rise in a few months. An exception to this rule would be those who directly benefit from higher oil prices, such as aramco and exonn.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/72" target="_blank" rel="noopener">#72</a>
+<time>23 Aug 2022 · 22:28</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/72" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Factors that can limit the effect of reenactment of JPOA are:<br>1) companies will be hesitant to buy oil and gas from Iran, fearing that next US admin may reimpose sanctions. Given the severity of oil and gas shortage in EU, this can&#x27;t be a huge factor <br>2) due to strategic partnership between Iran and Russia, Iran will try to avoid harming Putin&#x27;s war footing. <br>3) there are numerous signs that tensions between Iran and US are not subsiding, and therefore enforcing of the deal can be extremy hard <br>The conclusion of all is that iran will not supply oil market in full (theoretically 4B barrels a day) capacity.</div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/74" target="_blank" rel="noopener">#74</a>
+<time>6 Nov 2022 · 11:56</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/74" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">in a dramatic and highly unpredictable turn of events, negotiations for JCPOA are nearly dead. Neither US nor EU wants to give sanctions relief to a government that is actively oppressing protesters. Given the domestic politics in US with midterm elections and a possible Republican comeback, there is no real prospect of JCPOA being reenacted anytime soon, if ever.</div>
+</article>
+</div>
+</div>
+<h2 class="year">2022</h2>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/68" target="_blank" rel="noopener">#68</a>
+<time>20 Mar 2022 · 10:39</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/68" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">It&#x27;s highly likely that Trump will run for reelection, and he will lose. The main reason Biden won was Trump himself, because voting Trump out of office was the primary motive of the voters. Besides, Trump does not have a good stance when it comes to Russia, which is becoming a focal point for US politics and electorate. <br>The upshot is that that Trump will almost certainly lose either the primary or general election, barring some truely bizare twist in the events.</div>
+</article>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/69" target="_blank" rel="noopener">#69</a>
+<time>26 Mar 2022 · 23:31</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/69" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The ramifications of the Russian invasion of Ukrain will shake the world economy to its roots. The war has put the world economy on a path leading to even more inflation and later recession (Russia supplies 11% of global energy), and famine (Russian &amp; Ukraine supply of 25% of global wheat), exacerbating the multitude of crises caused by global warming. <br>This does not even take worst case view. Biden just announced that Putin &quot;cannot stay in power&quot;. Words that will ring in Putin&#x27;s ear, reminding him that outright defeat is an existential threat to him, personally. <br>As Kissinger has laid out in this short op-ed, without new strategy, history is going to repeat itself<br><a href="https://www.washingtonpost.com/opinions/henry-kissinger-to-settle-the-ukraine-crisis-start-at-the-end/2014/03/05/46dad868-a496-11e3-8466-d34c451760b9_story.html" target="_blank" rel="noopener">https://www.washingtonpost.com/opinions/henry-kissinger-to-settle-the-ukraine-crisis-start-at-the-end/2014/03/05/46dad868-a496-11e3-8466-d34c451760b9_story.html</a></div>
+</article>
+<h2 class="year">2024</h2>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/77" target="_blank" rel="noopener">#77</a>
+<time>30 Jul 2024 · 16:40</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/77" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The most likely VP candidate for Kamala Harris is likely to be Josh Shapiro. But the most important part of it is political considerations: He is a highly liked governor of a state, Pensilvania, that is virtually tied to the election result, and even that makes a 0.5% or 1% difference in the Pensilvania&#x27;s election, this could be a potential game changer.  He also serves to fill the same role that Biden played before, as someone who understands blue collar middle class voters, in PA and nationally. <br><br>A lot is uncertain, namely other contenders in the list (such as Mark Kelly) could bring the same effect for Arizona, another swing state.</div>
+</article>
+<h2 class="year">2026</h2>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/78" target="_blank" rel="noopener">#78</a>
+<time>1 Mar 2026 · 11:20</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/78" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">There is a very low likelihood of regime change as a result of bombing campaign in Iran. There has been zero instances of regime change by air campaigns alone, and there is little appetite, as of now at least, for boots on the ground for Trump. <br>And the war, if anything, has thought IR and IRGC that they are in a fight for their existence , and they will crack down even more on any protests, making them crush any protests with full blunt force.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/79" target="_blank" rel="noopener">#79</a>
+<time>2 Mar 2026 · 19:27</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/79" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">according to the attached Bayesian analysis of experts on this topic which I compiled and produced using deep research tools, the odds of war ending with regime change are &lt;10%, other outcomes include prolonged quagmire (52%),   diplomatic off-ramp (21%), and catastrophic escalation (16%), so a combined &gt;90% probability of regime surviving in some form.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/80" target="_blank" rel="noopener">#80</a>
+<time>2 Mar 2026 · 19:40</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/80" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="photo"><div class="photo-label">📷 Photo 7</div><div class="photo-body"><strong>Bayesian Scenario Probabilities — Day 1 Prior</strong>
+<table><thead><tr><th>Scenario</th><th>Probability</th><th>80% CI</th><th>95% CI</th></tr></thead><tbody>
+<tr><td>Prolonged Quagmire</td><td>52.3%</td><td>45.1–59.7%</td><td>41.2–63.4%</td></tr>
+<tr><td>Stalemate / De-escalation</td><td>21.9%</td><td>15.7–27.2%</td><td>13.5–31.1%</td></tr>
+<tr><td>Catastrophic Spread</td><td>16.6%</td><td>11.2–21.2%</td><td>9.2–24.5%</td></tr>
+<tr><td>Quick Win / Regime Change</td><td>9.2%</td><td>5.4–12.2%</td><td>4.3–14.8%</td></tr></tbody></table></div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/86" target="_blank" rel="noopener">#86</a>
+<time>3 Mar 2026 · 23:08</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/86" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">for transparency, the expert Bayesian  aggregate model is attached, made on March 1, is attached</div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/92" target="_blank" rel="noopener">#92</a>
+<time>9 Mar 2026 · 15:25</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/92" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Headline: the odds of off-ramp have now decreased and risk of continued escalation has increased,  while the risk of the continued  conflict / quagmire remains the most likely scenario</div>
+<div class="photo"><div class="photo-label">📷 Photo 12</div><div class="photo-body"><strong>Bayesian Scenario Probabilities — Day 10 Update</strong>
+<table><thead><tr><th>Scenario</th><th>Day 1 Prior</th><th>Day 7</th><th>Day 10</th><th>Primary Driver</th></tr></thead><tbody>
+<tr><td>Quagmire / Prolonged Attrition</td><td>52.3%</td><td>~46%</td><td>42–46%</td><td>IRGC cohesion, Mojtaba continuity</td></tr>
+<tr><td>Catastrophe / Escalation</td><td>16.6%</td><td>~27%</td><td>35–38%</td><td>Oil $119, Iraq collapse, SF option</td></tr>
+<tr><td>Stalemate / Off-Ramp</td><td>21.9%</td><td>~18%</td><td>10–13%</td><td>Trump-Xi pressure; Larijani "no talks"</td></tr>
+<tr><td>Quick Win / Regime Change</td><td>9.2%</td><td>~11%</td><td>3–5%</td><td>Mojtaba confirmed, NIC report</td></tr></tbody></table></div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/93" target="_blank" rel="noopener">#93</a>
+<time>9 Mar 2026 · 16:47</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/93" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Updated state of the war modeling based on both expert opinions, and reports of the conflict attached (including the raw data for expert accuracy calculations)</div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/95" target="_blank" rel="noopener">#95</a>
+<time>11 Mar 2026 · 20:59</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/95" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The latest US/Israel vs Iran war update, full report</div>
+</article>
+<div class="thread-children">
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/96" target="_blank" rel="noopener">#96</a>
+<time>11 Mar 2026 · 21:05</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/96" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">headline: There is a somewhat contradictory rise of chances of a catastrophe and an off-ramp or ceasefire. This is because of the shock of the huge disruption of to oil  &amp; gas. <br><br> This has a simultaneous double-effect: it could either force further escalate things, or it could lead to an off-ramp , out of a fear that it could lead to US and global economy to go into recession. It&#x27;s hard to say at this point which is more likely.</div>
+<div class="photo"><div class="photo-label">📷 Photo 14</div><div class="photo-body"><strong>Bayesian Scenario Probabilities — Day 13 Update</strong>
+<table><thead><tr><th>Scenario</th><th>Day 1</th><th>Day 7</th><th>Day 10</th><th>Day 13</th><th>Primary Driver</th></tr></thead><tbody>
+<tr><td>Quagmire / Prolonged Attrition</td><td>52.3%</td><td>~46%</td><td>42–46%</td><td><strong>38–42%</strong></td><td>IRGC cohesion; drone shift preserves fighting capacity; Mojtaba confirmed</td></tr>
+<tr><td>Catastrophe / Escalation</td><td>16.6%</td><td>~27%</td><td>35–38%</td><td><strong>38–42%</strong></td><td>MINES in Hormuz; IEA release markets-unimpressed; Wright hoax; Wave 37 Khoramshahr-4</td></tr>
+<tr><td>Stalemate / Off-Ramp</td><td>21.9%</td><td>~18%</td><td>10–13%</td><td><strong>13–17%</strong></td><td>US-Israel energy-strike restraint; China contacts; Witkoff Israel visit planned</td></tr>
+<tr><td>Quick Win / Regime Change</td><td>9.2%</td><td>~11%</td><td>3–5%</td><td><strong>2–4%</strong></td><td>Araghchi rejects all talks; Wave 37 launched under active bombing</td></tr></tbody></table></div></div>
+</article>
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/97" target="_blank" rel="noopener">#97</a>
+<time>11 Mar 2026 · 21:19</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/97" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">if you prefer a web format instead of PDF: <a href="https://claude.ai/public/artifacts/89591b44-c267-4f77-8274-2c252d426722" target="_blank" rel="noopener">https://claude.ai/public/artifacts/89591b44-c267-4f77-8274-2c252d426722</a></div>
+</article>
+</div>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/102" target="_blank" rel="noopener">#102</a>
+<time>13 Mar 2026 · 15:10</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/102" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">the war update, as PDF. This time, the report contains a short post before the detailed intelligence gathering</div>
+</article>
+<div class="thread-children">
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/101" target="_blank" rel="noopener">#101</a>
+<time>13 Mar 2026 · 15:09</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/101" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">If you prefer a web format to read <a href="https://claude.ai/public/artifacts/3997258c-bea1-4866-8be4-614c98ba4bb6" target="_blank" rel="noopener">https://claude.ai/public/artifacts/3997258c-bea1-4866-8be4-614c98ba4bb6</a></div>
+</article>
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/103" target="_blank" rel="noopener">#103</a>
+<time>13 Mar 2026 · 15:14</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/103" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">the main headline: the first time our model puts the odds of further escalation higher than odds of stalemate, primarily driven by further energy sector disruption and recent hardline statements by new Iran leader, and  regime collapse is the least likely since start of the war</div>
+<div class="photo"><div class="photo-label">📷 Photo 15</div><div class="photo-body"><strong>Scenario Probability Evolution — Days 1 through 14</strong><ul>
+<li>Catastrophe: 16% → 27% → 37% → <strong>42%</strong> (rising)</li>
+<li>Quagmire: 52% → 45% → 43% → <strong>36%</strong> (falling)</li>
+<li>Off-Ramp: 22% → 18% → 11% → <strong>15%</strong></li>
+<li>Quick Win: 9% → 11% → 4% → <strong>2%</strong></li></ul>
+Caption: "Catastrophe overtakes Quagmire as modal scenario for the first time on Day 14 · Combined worst-case: 78%"</div></div>
+</article>
+</div>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/104" target="_blank" rel="noopener">#104</a>
+<time>15 Mar 2026 · 17:01</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/104" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Iran war update for 15th day: full report with summary attached,  <br>web form: <br><a href="https://claude.ai/public/artifacts/0568b6f0-aed1-4f28-b5c1-a13ace090f87" target="_blank" rel="noopener">https://claude.ai/public/artifacts/0568b6f0-aed1-4f28-b5c1-a13ace090f87</a></div>
+</article>
+<div class="thread-children">
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/105" target="_blank" rel="noopener">#105</a>
+<time>15 Mar 2026 · 17:03</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/105" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">upshot: the trend towards escalation continues, with some cautioned increase in odds of an off-ramp. The driver for both event is that both sides are going up the escalation ladder, making attrition less likely, which could either result in an all-out war (including ground invasion or something of same scale), or it could force one of the side to de-escalate as the economic or military realities sink in</div>
+<div class="photo"><div class="photo-label">📷 Photo 16</div><div class="photo-body"><strong>Scenario Probability Evolution — Days 1 through 15</strong><ul>
+<li>Catastrophe: <strong>45%</strong> (rising)</li>
+<li>Quagmire: <strong>31%</strong> (falling)</li>
+<li>Off-Ramp: <strong>18% ↑</strong> (rising for the first time)</li>
+<li>Quick Win: <strong>2%</strong></li></ul>
+Caption: "Catastrophe overtook Quagmire on Day 14 and continues rising · Off-Ramp rises for the first time on Day 15"</div></div>
+</article>
+</div>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/106" target="_blank" rel="noopener">#106</a>
+<time>16 Mar 2026 · 11:29</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/106" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">war update: the full report attached, <br>the web form:<br><a href="https://claude.ai/public/artifacts/4d68c322-5eb1-4c48-96b2-d1963f9ee07a" target="_blank" rel="noopener">https://claude.ai/public/artifacts/4d68c322-5eb1-4c48-96b2-d1963f9ee07a</a></div>
+</article>
+<div class="thread-children">
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/107" target="_blank" rel="noopener">#107</a>
+<time>16 Mar 2026 · 11:37</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/107" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">upshot: all both sides seem to have completely dug in their positions, posturing for further escalation. The energy crisis its severe risks to global economy simultaneously push the escalation up (to force the other side to back out), and keep the offramp stil viable (Trump/US feels too much domestic political pressure)</div>
+</article>
+</div>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/111" target="_blank" rel="noopener">#111</a>
+<time>18 Mar 2026 · 16:49</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/111" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Double report of yesterday and today&#x27;s war update</div>
+</article>
+<div class="thread-children">
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/112" target="_blank" rel="noopener">#112</a>
+<time>18 Mar 2026 · 16:49</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/112" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+</article>
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/113" target="_blank" rel="noopener">#113</a>
+<time>18 Mar 2026 · 17:26</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/113" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">the web form: <a href="https://claude.ai/public/artifacts/75d19694-5f07-42f2-83d5-be7b47be3d11" target="_blank" rel="noopener">https://claude.ai/public/artifacts/75d19694-5f07-42f2-83d5-be7b47be3d11</a></div>
+</article>
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/114" target="_blank" rel="noopener">#114</a>
+<time>18 Mar 2026 · 17:35</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/114" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">One of the most telling graphs from the report: and the price of gas &amp; Diesel per gallon in US, with the dashed lines indicating the &quot;red lines&quot; that if surpassed, will apply enormous political and economical pressure. <br><br>All parties are aware of this, but with different interpreations: <br>US: we should either open the strait by any means or the war is unsustainable. <br>Iran: the biggest  and most effective strategy to force the aggression to stop. Continue the closure. <br>Israel: if both red lines crossed, US political will to continue the war may start to wane</div>
+<div class="photo"><div class="photo-label">📷 Photo 18</div><div class="photo-body"><strong>US Fuel Price Tracker — Feb 28 to Mar 18, 2026</strong><ul>
+<li>Regular gasoline: ~$2.90 → ~$3.82 (+$0.915/gal, <strong>+31%</strong> in 19 days)</li>
+<li>Diesel: ~$3.70 → ~$5.03 (+$1.33/gal, <strong>+36%</strong>, surpassing $5 for first time since Dec 2022)</li>
+<li>$4.00 "political red line" on gasoline — now $0.16 away</li>
+<li>Note: "on pace with Hurricane Katrina 2005"</li></ul></div></div>
+</article>
+</div>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/122" target="_blank" rel="noopener">#122</a>
+<time>24 Mar 2026 · 18:01</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/122" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Big update: the data sources are encapsulated to live trackers prediction ledger and fact ledger: <br><br>Prediction ledger, containing &gt;500 predictions by panel of 64 experts  <br><br><a href="https://claude.ai/public/artifacts/d27efe1e-be19-470d-bdb8-5e17b91c29c9" target="_blank" rel="noopener">https://claude.ai/public/artifacts/d27efe1e-be19-470d-bdb8-5e17b91c29c9</a><br><br>Current fact ledger: containing the latest energy prices and ordnances and other indicators:<br><br><a href="https://claude.ai/public/artifacts/a6954639-dc04-4def-a396-b1fd4999d658" target="_blank" rel="noopener">https://claude.ai/public/artifacts/a6954639-dc04-4def-a396-b1fd4999d658</a><br><br>B the latest war forecasting report: the strategic and evolution modeling of the war<br><br><a href="https://claude.ai/public/artifacts/747fd16f-2d22-4532-ad84-e0c5b816ea46" target="_blank" rel="noopener">https://claude.ai/public/artifacts/747fd16f-2d22-4532-ad84-e0c5b816ea46</a></div>
+</article>
+<div class="thread-children">
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/123" target="_blank" rel="noopener">#123</a>
+<time>24 Mar 2026 · 18:07</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/123" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Upshot: the aggregate  model predicts that Iran is favored to win strategically with ~1/2 likelihood, and while a draw or US/Israel strategic win are each roughly  ~1/4.<br><br>However, the win is unlikely to come cheap: the model gives a ~1/3 likelihood of US ground invasion, and ~1/2 likelihood of major major escalation to water and energy infrastructure<br><br>for details, such as definition of win scenario and Bayesian model see the report  at above link</div>
+<div class="photo"><div class="photo-label">📷 Photo 20</div><div class="photo-body"><strong>Headline Findings</strong><br>
+<em>PART I — HOW DOES THE WAR END?</em><ul>
+<li>Iran-favoured: <strong>47%</strong> · Stalemate: <strong>25%</strong> · US/Israel-favoured: <strong>28%</strong></li></ul>
+<em>PART II — WHAT HAPPENS NEXT?</em><ul>
+<li>Does the war end quickly? <strong>24% Yes</strong></li>
+<li>Major ground invasion? <strong>34% Yes</strong></li>
+<li>Hormuz reopened by force? <strong>22% Yes</strong></li>
+<li>Major infrastructure strikes? <strong>47% Yes</strong></li></ul>
+Model parameters: τ=0.20, κ=5.0</div></div>
+</article>
+</div>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/81" target="_blank" rel="noopener">#81</a>
+<time>2 Mar 2026 · 20:35</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/81" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">for the next four weeks. 70% likelihood of oil price further going  up, markets/indices further going down. As quagmire and catastrophic spread jointly have a 70% likelihood, and both predict major disruption in oil supplies, the prices of oil will likely keep going up for at least the next 4 weeks, with markets in general reacting negatively /  going down as risk of major escalation and prolonged conflict increases</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/82" target="_blank" rel="noopener">#82</a>
+<time>3 Mar 2026 · 11:09</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/82" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">since the last post, there&#x27;s &gt;5% increase in all oil and gas prices, due to the official closure of the strait of Hormuz</div>
+<div class="photo"><div class="photo-label">📷 Photo 8</div><div class="photo-body"><strong>Commodities price table — all up on the day</strong>
+<table><thead><tr><th>Commodity</th><th>Price</th><th>Change</th><th>Day %</th></tr></thead><tbody>
+<tr><td>Crude Oil</td><td>75.393</td><td>+4.163</td><td>+5.84%</td></tr>
+<tr><td>Brent</td><td>82.115</td><td>+4.375</td><td>+5.63%</td></tr>
+<tr><td>Natural gas</td><td>3.1528</td><td>+0.1928</td><td>+6.51%</td></tr>
+<tr><td>Gasoline</td><td>2.4857</td><td>+0.1046</td><td>+4.39%</td></tr>
+<tr><td>Heating Oil</td><td>3.2121</td><td>+0.3117</td><td>+10.75%</td></tr>
+<tr><td>Coal</td><td>128.70</td><td>+10.20</td><td>+8.61%</td></tr>
+<tr><td>Ethanol</td><td>1.79</td><td>0</td><td>0%</td></tr>
+<tr><td>Urals Oil</td><td>62.52</td><td>+3.58</td><td>+6.07%</td></tr></tbody></table></div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/85" target="_blank" rel="noopener">#85</a>
+<time>3 Mar 2026 · 23:03</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/85" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">since the yesterday prediction about indices, indices are all in red, in particular for Asian markets because of the direct dependency of Asian market on the oil that&#x27;s transported through strait of Hormuz. Given that there are no quick ends in sight for the war to end (3-4 week long at lost, if not much longer), this pattern is likely to continue</div>
+<div class="photo"><div class="photo-label">📷 Photo 10</div><div class="photo-body"><strong>Asia-Pacific markets selloff — Mar 3, 4:05:30 AM ET (all red)</strong>
+<table><thead><tr><th>Index</th><th>Country</th><th>Price</th><th>Change</th><th>%</th></tr></thead><tbody>
+<tr><td>Nikkei 225</td><td>Japan</td><td>56,279.05</td><td>−1,778.19</td><td>−3.06%</td></tr>
+<tr><td>Hang Seng</td><td>Hong Kong</td><td>25,768.08</td><td>−291.77</td><td>−1.12%</td></tr>
+<tr><td>Shanghai Composite</td><td>China</td><td>4,122.68</td><td>−59.91</td><td>−1.43%</td></tr>
+<tr><td>Shenzhen Composite</td><td>China</td><td>14,022.39</td><td>−443.40</td><td>−3.07%</td></tr>
+<tr><td>S&amp;P/ASX 200</td><td>Australia</td><td>9,077.30</td><td>−123.60</td><td>−1.34%</td></tr>
+<tr><td>KOSPI</td><td>South Korea</td><td>5,791.91</td><td>−452.22</td><td>−7.24%</td></tr>
+<tr><td>Taiwan SE</td><td>Taiwan</td><td>34,323.65</td><td>−771.44</td><td>−2.20%</td></tr>
+<tr><td>Bombay Sensex</td><td>India</td><td>80,238.85</td><td>−1,048.34</td><td>−1.29%</td></tr></tbody></table></div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/90" target="_blank" rel="noopener">#90</a>
+<time>9 Mar 2026 · 12:11</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/90" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">predictions on Oil price and indices, with Asian markets being hit the most, is already materializing. with all sides hardening their positions there is no diplomatic off-ramps in sight, nor a complete military defeat of the IR is plausible in the near term future, thus the war is likely to stretch into 3-4 weeks at least, with economic fallout to continue</div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/94" target="_blank" rel="noopener">#94</a>
+<time>9 Mar 2026 · 23:10</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/94" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Update: the oil prices are surging so alarmingly that the war may be getting close to a turning point here. The oil prices that feed directly into inflation justifiably have spooked Trump, making him switch from &quot;as long as it takes&quot; to &quot;pretty quick&quot;.  Trump will likely rely on a big show of force as a face saving measure. <br><br>This will substantially changes the calculations, towards an off-ramp/stalemate, as neither side can deal a fatal blow to the other side. Note that this will be in all likelihood  a ceasefire not  a peace deal</div>
+<div class="photo"><div class="photo-label">📷 Photo 13</div><div class="photo-body"><strong>News headline:</strong> "Iran war live: Trump says attack may be 'short-term' as oil fears rise"</div></div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/84" target="_blank" rel="noopener">#84</a>
+<time>3 Mar 2026 · 23:01</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/84" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">since publishing the first post on prediction on Iran&#x27;s regime survival, this signal on Polymarket has gone from ~50% to 39%, but according to the expert model the odds are still significantly lower (&lt;10%). So buying &quot;no&quot; is a safe bet</div>
+<div class="photo"><div class="photo-label">📷 Photo 9</div><div class="photo-body"><strong>Polymarket: "Will the Iranian regime fall by June 30?"</strong> — Current: <strong>54% chance</strong> (▲30%). Chart: flat ~22–25% from Feb 26 to Feb 28, sharp spike from Feb 28, peaking ~58% on Mar 1 around 3:30 AM. Volume: $6,857,574 · Resolution: Jun 30, 2026.</div></div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/108" target="_blank" rel="noopener">#108</a>
+<time>16 Mar 2026 · 12:00</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/108" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Special report: probability of Israel using nuclear weapons is very very low, but not outright zero.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/109" target="_blank" rel="noopener">#109</a>
+<time>16 Mar 2026 · 12:03</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/109" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Special report 2: probability of US deploying ground forces: 1) special forces and limited operations, 2) full ground invasion</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/110" target="_blank" rel="noopener">#110</a>
+<time>16 Mar 2026 · 12:04</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/110" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Upshot: special forces and limited operations: ~19%, full invasion: 4%.</div>
+<div class="photo"><div class="photo-label">📷 Photo 17</div><div class="photo-body"><strong>Ground invasion probability cards</strong><ul>
+<li><strong>ANY BOOTS ON GROUND</strong> (SOF, Island, or Conventional): <strong>~19%</strong> · 95% CI: [9%, 33%]</li>
+<li><strong>FULL CONVENTIONAL INVASION</strong> (Iraq 2003 scale): <strong>~4%</strong> · 95% CI: [1%, 9%]</li></ul></div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/126" target="_blank" rel="noopener">#126</a>
+<time>26 Mar 2026 · 14:58</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/126" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Question: Will there be a US ground force (boots on the ground) in Iran? <br><br>I think it&#x27;s likely (&gt;50%), that US will launch a ground operation, albeit its scale and aims are uncertain .<br><br>Given the current calculus that strait cannot be opened by bombing campaign, and signals that US is moving more and more forces to the region, there are strong indications that US is committing to a kind of ground operation in the south of Iran to open the strait. <br><br>Conventional wisdom is that this will be a small scale (say paratroopers) operation, as large scale boots on the ground will lead to far higher US casulties and political cost, which surely Trump doesn&#x27;t want. But if he feels forced into a corner, nothing is completely off the table.</div>
+</article>
+<div class="thread-children">
+<article class="post depth-3" data-depth="3">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/127" target="_blank" rel="noopener">#127</a>
+<time>30 Mar 2026 · 11:14</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/127" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Question: Will Occupying Kharg (or one of the Iranian southern islands) island serve any of the US strategic goals? <br><br>Short answer: no<br><br><br>There are two main goals: opening, the strait of Hormuz, and controlling Iranian oil to sell it on the market. Occupying the island wont&#x27; serve any of these two goals. <br><br><br>1) Strait of Hormuz: Iran never used Kharg or any other island to close the strait in the first place. Even if US were to occupy all Iranian islands, it would still make no difference in the equation around strait of Hormuz. <br><br>2) Controlling Iranian oil: first note that US needs it on the market to avoid surging oil prices, which is why it has lifted some sanctions int he first place. Now, if US were to occupy Kharg island which receives oil via submarine oil pipelines, Iran could simply switch off the oil flow, and enact a de facto oil embargo. Therefore, US will achieve same goal as embargo on Iranian oil at a significantly higher risk, and will also risk Iranian retaliation on GCC oil infrustructure.  <br><br>Saying this is not strategic, is not to say that US won&#x27;t attempt to do so, as US has proven so far to be not  prosecuting the war strategically.</div>
+</article>
+</div>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/115" target="_blank" rel="noopener">#115</a>
+<time>19 Mar 2026 · 17:06</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/115" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Iran war Special report: oil &amp; gas prices and how they alter the strategic landscape of the war</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/116" target="_blank" rel="noopener">#116</a>
+<time>19 Mar 2026 · 17:14</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/116" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Upshot: gas is $3.84, diesel $5.04, Brent $109 — and the report maps exactly what happens at each price threshold from here. The key finding: all three sides are reading the same price signal differently — the US sees an unsustainable drain, Iran sees its most effective weapon, Israel sees a countdown clock on American political will. Four war-ending scenarios follow from four oil price trajectories. We&#x27;re currently between the first two.</div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/117" target="_blank" rel="noopener">#117</a>
+<time>20 Mar 2026 · 09:53</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/117" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Upshot: Gas was $2.927/gal on February 28 (AAA). It&#x27;s $3.884 today (AAA, March 20). That&#x27;s 96 cents — 33% — in 20 days. That&#x27;s the sharpest  gas price increase in more than two decades. <br><br>Gas prices are the one price every American sees every single day — on a giant sign, at the corner of every street. And everyone who watched the number jump knows exactly why: there was no war, then there was a war, then gas went up a dollar. That&#x27;s what makes gas prices uniquely dangerous politically, &gt;4$ prices unsustainable. <br><br>Thus strategic landscape hinges on one key question: can Iran keep the strait closed, or can US open it militarily?</div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/118" target="_blank" rel="noopener">#118</a>
+<time>21 Mar 2026 · 21:21</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/118" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Iran war: firing rate of Iran report</div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/119" target="_blank" rel="noopener">#119</a>
+<time>21 Mar 2026 · 21:23</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/119" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Upshot: the number of drones and missiles fired by Iran follow what seems to be a controled rationed trajectory that seems to defy the notion that &gt;80% of launchers are hit/lost, and more consistent with a strategic attritional rationing. If true, it means Iran&#x27;s firing capabilities have sustained the bombing so far</div>
+<div class="photo"><div class="photo-label">📷 Photo 19</div><div class="photo-body"><strong>All Iranian Projectiles — Days 1–22 (Feb 28 – Mar 21)</strong><ul>
+<li>Totals: 1,466 missiles + 3,522 drones = <strong>4,988 projectiles</strong></li>
+<li>Peak: D1 (503 missiles, 577 drones); D2 (98/487); declining trend</li>
+<li>3-day average from ~540/day down to ~80/day by D22</li>
+<li>Footnote: "True totals est. 20–35% higher. Sources: target-country MoD statements, JINSA, CTP-ISW, FDD Long War Journal. No Iranian government sources used."</li></ul></div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/134" target="_blank" rel="noopener">#134</a>
+<time>6 Apr 2026 · 20:04</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/134" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">New report: The Missiles and Launchers That Weren&#x27;t Destroyed<br><br>A look back, not forward — but grounded in the same framework. If a model predicts the future, it earns the right to interpret the past.<br>The Western narrative says Iran&#x27;s missile force is destroyed and degraded. The 38-day data says otherwise:<br><br>→ 1,725+ ballistic missiles fired in 38 days → Sustained floor of 20+ BMs/day  and 7-day average → much more indicative of a strategic rationing rather degradation.  Furthermore, Iran&#x27;s SRBM fleet—used against GCC and estimated 5,000–8,000 rounds pre-war— seems to have  remained largely intact.  Iran has runway measured in months. GCC interceptor stocks do not.<br><br>The arithmetic matters because the people setting deadlines are using it.<br><br>See full report at:<br><a href="https://claude.ai/public/artifacts/8a55ae9b-ec91-40ba-9968-27e190956363" target="_blank" rel="noopener">https://claude.ai/public/artifacts/8a55ae9b-ec91-40ba-9968-27e190956363</a></div>
+<div class="photo"><div class="photo-label">📷 Photo 24</div><div class="photo-body"><strong>Article header — Unmitigated Wisdom</strong><br>
+Headline: "The Missile Force <s>Was Destroyed</s>. Except <em>It Wasn't</em>."<br>
+Subhead: "Thirty-eight days of operational data show Iran's short-range ballistic missile campaign sustaining well above 20 launches per day — with a sharp resurgence in late March that the '90% destroyed' narrative cannot explain."</div></div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/124" target="_blank" rel="noopener">#124</a>
+<time>25 Mar 2026 · 15:33</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/124" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Question: is there genuinely US Iran negotiations or is this market manipulation by Trump? <br><br>I don&#x27;t think there are serious or any negotiations underway, for following reasons:<br><br>1) Based on data so far: I&#x27;m nearly certain that the Iranian side is not interested in negotiations, because they view it as giving a chance to Trump to re-arm, etc. From my understanding, Iran&#x27;s strategic calculation is that if they increase the price of oil &amp; gas by a huge historical margin, US will withdraw and the political cost will take a huge toll, preventing them from re-arming and re-attacking. <br><br>2) While Trump is talking up negotiations, US has quietly amassed about 50,000 troops, part of them paratroopers in the region, sending a  stronger signal (action &gt; words) that US is more likely digging in its heel.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/125" target="_blank" rel="noopener">#125</a>
+<time>26 Mar 2026 · 14:34</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/125" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Question: When will the war end? <br><br>It is highly likely that the war to last for several more months (&gt;2), if not far longer. <br><br>This war started because the parties had maximalist demands that were impossible to bridge, and the war made those gaps even wider. Simultaneously, neither side can end the war with a  decisive and quick victory. <br><br>Here is my reasoning: <br><br>From Iranian side, several rounds of negotiations then war and high profile assassinations, have put them on a mistrustful survival mode, and put them in a position to want to score a decisive strategic victory to avoid further attacks.  Even if were US to unilaterally stop the bombings, Iranians have signaled that they are unlikely to open the strait of Hormuz, unless US &amp; GCC agree to maximalist demans, effectively demanding a  humiliating withdraw by US and GCC.  Furthermore, even if US withdraws from the conflict, Israel will most likely continue its own version of the war by attacking civilian infrastructure or worse, causing mass casualties and destruction <br><br>Thus, the war of attrition seems destined to continue for the foreseeable future.</div>
+</article>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/128" target="_blank" rel="noopener">#128</a>
+<time>2 Apr 2026 · 01:18</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/128" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">new report: <br><a href="https://claude.ai/public/artifacts/da975520-bf35-4c71-a457-9289db15b22c" target="_blank" rel="noopener">https://claude.ai/public/artifacts/da975520-bf35-4c71-a457-9289db15b22c</a></div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/129" target="_blank" rel="noopener">#129</a>
+<time>2 Apr 2026 · 01:20</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/129" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">The upshot, <br>(note: the strait of hormuz includes scenarios where it is opened under Iranian custody )</div>
+<div class="photo"><div class="photo-label">📷 Photo 21</div><div class="photo-body"><strong>Five forecasting questions (Q1–Q5)</strong><ul>
+<li><strong>Q1 Ceasefire by June 30:</strong> 15% Yes — Resolves No — Cross-ideological</li>
+<li><strong>Q2 Ground Forces by June 30:</strong> 68% Yes — Resolves Yes — Mixed consensus</li>
+<li><strong>Q3 Hormuz ≥50% by Sept 30:</strong> 48% Yes — Toss-up — Panel divergence</li>
+<li><strong>Q4 Brent &gt;$150 by July 31:</strong> 52% Yes — Lean Yes — Conditional</li>
+<li><strong>Q5 Regime Survives Dec 31:</strong> 92% Yes — Resolves Yes — Strongest consensus</li></ul></div></div>
+</article>
+</div>
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/130" target="_blank" rel="noopener">#130</a>
+<time>4 Apr 2026 · 23:40</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/130" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">new report on &quot;Will the U.S. Strike Iran&#x27;s Critical Civilian Infrastructure?&quot; <br><a href="https://claude.ai/public/artifacts/12024222-8ebc-4e9a-81fb-8db7598f4490" target="_blank" rel="noopener">https://claude.ai/public/artifacts/12024222-8ebc-4e9a-81fb-8db7598f4490</a></div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/131" target="_blank" rel="noopener">#131</a>
+<time>4 Apr 2026 · 23:41</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/131" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">the upshot: power grid is nearly certain to be hit, oil and gas infrastructure is a 50-50 coin flip, and water is at least for the moment less likely</div>
+<div class="photo"><div class="photo-label">📷 Photo 22</div><div class="photo-body"><strong>Infrastructure target probability cards</strong><ul>
+<li><strong>POWER &amp; GRID: 85%</strong> — Strikes on 400 kV national transmission backbone or thermal plants (≥500 MW) near-certain. Coalition forces have severed power to neutralise underground nuclear/missile sites; expanding to civilian-linked nodes.</li>
+<li><strong>OIL &amp; GAS: 45%</strong> — A coin-flip held in tension. Iran's "Symmetry Doctrine" deters strikes on Kharg Island and major refineries, but Trump's public ultimatum and 95%-closed Strait of Hormuz create an escalating credibility trap.</li>
+<li><strong>WATER: 15%</strong> — The absolute red line. Striking Iranian dams or desalination plants would trigger reciprocal annihilation of Gulf allies' water infrastructure.</li></ul></div></div>
+</article>
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/133" target="_blank" rel="noopener">#133</a>
+<time>6 Apr 2026 · 11:01</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/133" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Will Trump Actually Carry Out “Power Plant Day” in Iran?<br><br>despite Trump&#x27;s “Power Plant Day / Bridge Day” threat, for the specific Apr 7–14 window  our model predicts  backing down or symbolic hits are more likely than following through with  energy or power grid hits.<br><br>Main reason: the structural incentives still point away from a literal follow-through on power plants. Hitting the grid or oil/gas does not solve the Hormuz problem; it more likely deepens it by inviting wider retaliation on Gulf infrastructure, higher oil prices, and more political/economic blowback. If Trump feels he must “do something,” bridges/transport are the cleaner symbolic rung. Hitting symbolic buildings and bridges remains plausible.<br><br>seeming discrepancy: that earlier report was a longer-horizon infrastructure question (through Sept. 30), This report is a narrow one-week window after the Apr 7 ultimatum. So the two are not  contradictory. <br><br>see full report at: <a href="https://claude.ai/public/artifacts/976fb517-fc7c-4449-afe0-014eb0533899" target="_blank" rel="noopener">https://claude.ai/public/artifacts/976fb517-fc7c-4449-afe0-014eb0533899</a></div>
+<div class="photo"><div class="photo-label">📷 Photo 23</div><div class="photo-body"><strong>Escalation Ladder Rungs A–D (Apr 7–14 window)</strong><ul>
+<li><strong>Rung D — Postponement / Stand-down: 48%</strong> — No new deliberate strikes on civilian infrastructure. Strikes confined to military combatants (air defences, missile launchers, radars, bases).</li>
+<li><strong>Rung C — Transport-only Escalation: 30%</strong> — Deliberate strikes on civilian transport (bridges, highways, rail) but no power/water/major oil-gas. Lowest civilian rung that still looks like follow-through.</li>
+<li><strong>Rung B — Domestic Grid Escalation: 14%</strong> — Deliberate kinetic strikes on Iranian power generation or municipal water infrastructure, no major oil/gas. "The rung Trump's rhetoric explicitly points toward."</li>
+<li><strong>Rung A — Global Energy Escalation: 8%</strong> — Strikes on major Iranian oil/gas/petrochemical infrastructure — refineries, Kharg terminal, South Pars. "The rung that detonates the world economy."</li></ul></div></div>
+</article>
+</div>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/83" target="_blank" rel="noopener">#83</a>
+<time>3 Mar 2026 · 11:15</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/83" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Bayesian expert aggregation on Iran&#x27;s supreme leader succession forecasting</div>
+</article>
+<div class="thread-children">
+<article class="post depth-1" data-depth="1">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/87" target="_blank" rel="noopener">#87</a>
+<time>3 Mar 2026 · 23:42</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/87" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">An Iran international&#x27;s post about Mojtaba being selected as the successor has pushed his odds to 72% on Polymarket. When tracking Iran international&#x27;s track record on similar articles, they have about ~50-70% probability of accuracy, and have been debunked on highly similar articles. So I would put Mojtaba&#x27;s odds at 30% (so buying no is a good bet)</div>
+<div class="photo"><div class="photo-label">📷 Photo 11</div><div class="photo-body"><strong>Polymarket: "Next Supreme Leader of Iran?"</strong> — Mojtaba Khamenei: 73.6% (sharp spike at right edge) · Alireza Arafi: 6.3% · Hassan Khomeini: 3.3% · Position abolished: 3.6%</div></div>
+</article>
+<div class="thread-children">
+<article class="post depth-2" data-depth="2">
+<header class="post-head">
+<span class="reply-arrow">↳</span> <a class="msgnum" href="https://t.me/unmitigated_wisdom/88" target="_blank" rel="noopener">#88</a>
+<time>5 Mar 2026 · 23:20</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/88" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">updated forecast: there&#x27;s a flurry of news regarding Leader&#x27;s selection process, the top headline is that Mojtaba&#x27;s odds are pushed up by NTY&#x27;s report (much more reputable), but the reporting says he&#x27;s a &quot;front runner&quot; not selected, and Reuters has reported a &quot;pushback&quot; from assembly of experts, so that puts his odds up to 40%-50%, which is just about where it stands right now in Polymarket</div>
+</article>
+</div>
+</div>
+<article class="post depth-0" data-depth="0">
+<header class="post-head">
+<a class="msgnum" href="https://t.me/unmitigated_wisdom/89" target="_blank" rel="noopener">#89</a>
+<time>7 Mar 2026 · 10:43</time>
+<a class="permalink" href="https://t.me/unmitigated_wisdom/89" target="_blank" rel="noopener">view on Telegram →</a>
+</header>
+<div class="text">Very long-term prediction: currently, the public opinion of Republicans/MAGA base in US is very much in sync with Trump, consistent with the rally around the flag effect. But if the war turns longer and messier and costlier, as the reports above predict, the war&#x27;s popularity will take a dip. The result of this is that republican figures, such as Tucker Carlson, who position themselves firmly against the war, will stand to benefit from the huge headwinds against the war. With the left wing of democratic party already hugely critical of Israel, republicans were effectively the most secure backstop to the Israeli lobby. Thus, if Tucker Carlson&#x27;s camp wins over republicans, this could spell a lot of trouble for Israel and Israeili lobby in the years to come.</div>
+</article>
+<footer class="site">
+115 posts · 25 root threads · Generated from Telegram export
+</footer>
+</div>
+</body>
+</html>
