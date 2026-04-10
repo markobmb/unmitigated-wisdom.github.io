@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unmitigated Wisdom — Predictions, Ledgers, and Analysis</title>
+<meta name="description" content="A prediction ledger and analytical archive on geopolitics, markets, and conflict. Forecasts with sources, scoring, and receipts.">
+<style>
+:root {
+  --bg: #fafaf7;
+  --fg: #1a1a1a;
+  --muted: #6b6b6b;
+  --accent: #b8342f;
+  --border: #e5e2d9;
+  --card: #ffffff;
+  --soft: #f4f1e8;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: ui-serif, Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.65;
+  font-size: 17px;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.wrap { max-width: 860px; margin: 0 auto; padding: 56px 24px 100px; }
+
+/* ---- NAV ---- */
+nav.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.88rem;
+}
+nav.top .brand { font-weight: 700; letter-spacing: 0.02em; color: var(--fg); }
+nav.top ul { list-style: none; display: flex; gap: 22px; margin: 0; padding: 0; }
+nav.top ul a { color: var(--muted); }
+nav.top ul a:hover { color: var(--accent); text-decoration: none; }
+nav.top ul a.disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---- HERO ---- */
+header.hero {
+  padding: 70px 0 50px;
+  border-bottom: 2px solid var(--fg);
+  margin-bottom: 48px;
+}
+header.hero h1 {
+  font-size: 3.2rem;
+  margin: 0 0 14px;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+header.hero .tagline {
+  font-style: italic;
+  color: var(--muted);
+  font-size: 1.15rem;
+  margin: 0 0 28px;
+  max-width: 640px;
+}
+header.hero .cta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.9rem;
+}
+header.hero .cta a {
+  display: inline-block;
+  padding: 10px 18px;
+  border: 1px solid var(--fg);
+  border-radius: 3px;
+  font-weight: 600;
+  color: var(--fg);
+}
+header.hero .cta a.primary {
+  background: var(--fg);
+  color: var(--bg);
+}
+header.hero .cta a.primary:hover { background: var(--accent); border-color: var(--accent); text-decoration: none; }
+header.hero .cta a:hover { text-decoration: none; background: var(--soft); }
+
+/* ---- STATS STRIP ---- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 56px;
+  overflow: hidden;
+}
+.stat {
+  padding: 22px 18px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+.stat:last-child { border-right: none; }
+.stat .num {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  display: block;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.stat .label {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* ---- SECTIONS ---- */
+section { margin-bottom: 56px; }
+section h2 {
+  font-size: 1.5rem;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: -0.01em;
+}
+section p { margin: 0 0 14px; }
+
+/* ---- CARDS GRID ---- */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 22px 24px;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.card:hover { border-color: var(--fg); }
+.card h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card h3 .tag {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  background: var(--soft);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.card h3 .tag.live { color: var(--accent); background: #fbeceb; }
+.card p { font-size: 0.93rem; color: var(--muted); margin: 0 0 12px; }
+.card a.more {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* ---- METHODOLOGY ---- */
+.method {
+  background: var(--card);
+  border-left: 3px solid var(--accent);
+  padding: 20px 26px;
+  font-size: 0.95rem;
+}
+.method ul { margin: 10px 0 0; padding-left: 20px; }
+.method li { margin: 4px 0; }
+
+/* ---- SOCIAL ---- */
+.social-list {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.9rem;
+}
+.social-list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--fg);
+  background: var(--card);
+}
+.social-list a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.social-list a.soon { opacity: 0.55; cursor: default; }
+.social-list a.soon:hover { border-color: var(--border); color: var(--fg); }
+.social-list .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); display: inline-block;
+}
+.social-list .soon .dot { background: #c9c4b3; }
+
+/* ---- FOOTER ---- */
+footer.site {
+  margin-top: 70px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+footer.site em { font-family: ui-serif, Georgia, serif; }
+
+@media (max-width: 680px) {
+  .wrap { padding: 28px 16px 70px; }
+  header.hero { padding: 40px 0 32px; }
+  header.hero h1 { font-size: 2.2rem; }
+  header.hero .tagline { font-size: 1rem; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat:nth-child(2) { border-right: none; }
+  .stat:nth-child(1), .stat:nth-child(2) { border-bottom: 1px solid var(--border); }
+  .cards { grid-template-columns: 1fr; }
+  nav.top ul { gap: 14px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="top">
+    <span class="brand">U / W</span>
+    <ul>
+      <li><a href="#about">About</a></li>
+      <li><a href="#" class="disabled" aria-disabled="true">Our Ledger</a></li>
+      <li><a href="#" class="disabled" aria-disabled="true">Expert Tracker</a></li>
+      <li><a href="#" class="disabled" aria-disabled="true">Articles</a></li>
+      <li><a href="#" class="disabled" aria-disabled="true">Reports</a></li>
+      <li><a href="#connect">Connect</a></li>
+    </ul>
+  </nav>
+
+  <header class="hero">
+    <h1>Unmitigated Wisdom</h1>
+    <p class="tagline">A prediction ledger on geopolitics, markets, and conflict — forecasts with sources, scoring, and receipts.</p>
+    <div class="cta">
+      <a class="primary" href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener">Read on Telegram →</a>
+      <a href="#about">What is this?</a>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><span class="num">2020</span><span class="label">Channel since</span></div>
+    <div class="stat"><span class="num">6 yrs</span><span class="label">Own track record</span></div>
+    <div class="stat"><span class="num">64</span><span class="label">Experts tracked*</span></div>
+    <div class="stat"><span class="num">501</span><span class="label">Predictions scored*</span></div>
+  </div>
+  <p style="font-size: 0.78rem; color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif; margin: -44px 0 56px; text-align: right;">* from the Expert Accuracy Tracker dataset, a separate project</p>
+
+  <section id="about">
+    <h2>About</h2>
+    <p>Unmitigated Wisdom began in 2020 as an independent, insight-driven forecasting channel — a private record of falsifiable claims about the parts of the world most liable to break: great-power conflict, energy markets, nuclear thresholds, proxy wars, and the quiet structural trends underneath them. Over time it has grown into a mixture of original insight-based calls and formal expert-aggregation modelling (Bayesian scenario models, ordnance trackers, accuracy backtests).</p>
+    <p>Every post is a claim someone could be wrong about. Every claim is dated, sourced, and eventually scored. The point isn't cleverness; it's accountability — a public track record kept in the open.</p>
+  </section>
+
+  <section>
+    <h2>What lives here</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Our Prediction Ledger <span class="tag">Coming soon</span></h3>
+        <p>The Unmitigated Wisdom ledger itself — every forecast made on the channel since 2020, threaded with follow-ups, resolutions, and scoring. Insight-based calls and model-driven ones, side by side.</p>
+        <a class="more" href="#">Preview →</a>
+      </div>
+      <div class="card">
+        <h3>Expert Accuracy Tracker <span class="tag live">Live</span></h3>
+        <p>A separate dataset: Bayesian accuracy scoring across 64 outside analysts and 501 of their predictions, with dual-source citations and debiasing. Used as an input to our own modelling.</p>
+        <a class="more" href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener">See on Telegram →</a>
+      </div>
+      <div class="card">
+        <h3>Long-form Articles <span class="tag">Coming soon</span></h3>
+        <p>Assessments, scenario models, and methodology notes — written up in full, with the math and the sources visible.</p>
+        <a class="more" href="#">Read →</a>
+      </div>
+      <div class="card">
+        <h3>Reports (PDF) <span class="tag">Coming soon</span></h3>
+        <p>Downloadable dossiers: daily ordnance trackers, Bayesian scenario models, nuclear-threshold assessments.</p>
+        <a class="more" href="#">Download →</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Methodology</h2>
+    <div class="method">
+      Predictions are only counted when they meet four standards:
+      <ul>
+        <li><strong>Falsifiable</strong> — a concrete outcome that can be checked.</li>
+        <li><strong>Forward-looking</strong> — made before the event, not after.</li>
+        <li><strong>Specific</strong> — scoped enough to fail.</li>
+        <li><strong>Attributable</strong> — tied to a named source with a citation.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="connect">
+    <h2>Connect</h2>
+    <p>The Telegram channel is the primary feed. Other accounts are rolling out soon.</p>
+    <div class="social-list">
+      <a href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener"><span class="dot"></span>Telegram</a>
+      <a class="soon"><span class="dot"></span>Twitter / X — soon</a>
+      <a class="soon"><span class="dot"></span>Reddit — soon</a>
+      <a class="soon"><span class="dot"></span>RSS — soon</a>
+    </div>
+  </section>
+
+  <footer class="site">
+    © 2020–2026 Unmitigated Wisdom · <em>only theoretical frameworks that predict the future can be taken seriously in describing the past.</em>
+  </footer>
+
+</div>
+</body>
+</html>
