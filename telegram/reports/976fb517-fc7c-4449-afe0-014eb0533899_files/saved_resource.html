@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            window.parent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            window.parent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            window.parent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        let requestId = 0;
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = requestId++;
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream
+                resolve(new Response(stream, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                }));
+              },
+              reject,
+              channelId
+            });
+            
+            window.parent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          if (event.data.type === 'takeScreenshot') {
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              window.parent.postMessage({
+                type: 'screenshotError',
+                error: new Error('Root element not found'),
+              }, '*');
+            }
+            const screenshot = await htmlToImage.toPng(rootElement, {
+              imagePlaceholder:
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+            });
+            window.parent.postMessage({
+              type: 'screenshotData',
+              data: screenshot,
+            }, '*');
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              window.parent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            window.parent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            window.parent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          window.parent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          window.parent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Labyrinth of Bad Options — April 7 Escalation Window</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;0,900;1,400&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d10;
+  --bg-alt: #131318;
+  --bg-card: #181820;
+  --bg-elev: #1f1f29;
+  --border: #2a2a35;
+  --border-bright: #3a3a48;
+  --ink: #ebe8e1;
+  --ink-dim: #9c9a92;
+  --ink-mute: #5a5854;
+  --d-color: #6ec3a8;     /* teal-green for stand-down */
+  --c-color: #6ba3e8;     /* blue for transport */
+  --b-color: #e8a754;     /* amber for grid */
+  --a-color: #d4493d;     /* red for energy */
+  --d-dim: rgba(110,195,168,0.12);
+  --c-dim: rgba(107,163,232,0.12);
+  --b-dim: rgba(232,167,84,0.12);
+  --a-dim: rgba(212,73,61,0.12);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.72;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "kern", "liga";
+}
+
+::selection { background: var(--b-color); color: var(--bg); }
+
+/* GRID BG TEXTURE */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 40px;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 80% 20%, rgba(232,167,84,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 35% at 10% 90%, rgba(212,73,61,0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--b-color);
+  margin-bottom: 16px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.2s;
+}
+.hero-tag::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--b-color);
+  border-radius: 50%;
+  box-shadow: 0 0 12px var(--b-color);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.hero-byline {
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.3s;
+}
+.hero-byline a {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-dim);
+  text-decoration: none;
+  letter-spacing: 0.2px;
+  transition: color 0.2s;
+}
+.hero-byline a span {
+  color: var(--ink);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1px;
+}
+.hero-byline a:hover span { color: var(--b-color); border-bottom-color: var(--b-color); }
+
+.hero h1 {
+  font-family: 'Fraunces', serif;
+  font-weight: 900;
+  font-size: clamp(38px, 5.8vw, 78px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  max-width: 920px;
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.4s;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--b-color);
+  font-weight: 600;
+}
+
+.hero-sub {
+  font-family: 'Fraunces', serif;
+  font-size: 21px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-dim);
+  max-width: 680px;
+  line-height: 1.5;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.6s;
+}
+
+/* COUNTDOWN PANEL */
+.countdown-panel {
+  margin-top: 48px;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  flex-wrap: wrap;
+  padding: 24px 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--b-color);
+  border-radius: 4px;
+  max-width: 720px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.8s;
+}
+.countdown-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 4px;
+}
+.countdown-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.countdown-value.urgent { color: var(--b-color); }
+
+/* MAIN */
+.wrap { max-width: 840px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+/* AT A GLANCE - LADDER VISUALIZATION */
+.ladder-section {
+  padding: 64px 0 24px;
+}
+.ladder-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 8px;
+}
+.ladder-title {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 24px;
+}
+
+.ladder {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.rung {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 3px solid;
+  border-radius: 4px;
+  padding: 26px 26px 24px;
+  position: relative;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.rung:hover { transform: translateY(-3px); }
+.rung.r-d { border-top-color: var(--d-color); }
+.rung.r-c { border-top-color: var(--c-color); }
+.rung.r-b { border-top-color: var(--b-color); }
+.rung.r-a { border-top-color: var(--a-color); }
+
+.rung-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.rung-letter {
+  font-family: 'Fraunces', serif;
+  font-weight: 900;
+  font-size: 52px;
+  line-height: 0.85;
+  font-style: italic;
+}
+.rung.r-d .rung-letter { color: var(--d-color); }
+.rung.r-c .rung-letter { color: var(--c-color); }
+.rung.r-b .rung-letter { color: var(--b-color); }
+.rung.r-a .rung-letter { color: var(--a-color); }
+
+.rung-prob {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.rung.r-d .rung-prob { color: var(--d-color); }
+.rung.r-c .rung-prob { color: var(--c-color); }
+.rung.r-b .rung-prob { color: var(--b-color); }
+.rung.r-a .rung-prob { color: var(--a-color); }
+
+.rung-body h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--ink);
+  margin-bottom: 8px;
+  margin-top: 0;
+}
+.rung-body p {
+  font-family: 'Fraunces', serif;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+/* SECTIONS */
+section { padding: 80px 0; position: relative; z-index: 1; }
+section + section { border-top: 1px solid var(--border); }
+.section-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--b-color);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+h2 {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin-bottom: 24px;
+  color: var(--ink);
+}
+h2 em { font-style: italic; color: var(--b-color); font-weight: 600; }
+h3 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.2px;
+  margin-top: 40px;
+  margin-bottom: 14px;
+  color: var(--ink);
+}
+p { margin-bottom: 18px; color: var(--ink-dim); }
+p.lead {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.65;
+  font-family: 'Fraunces', serif;
+}
+
+/* DEADLINE DRIFT TIMELINE */
+.timeline {
+  margin: 36px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 32px;
+}
+.timeline-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 24px;
+}
+.timeline-track {
+  position: relative;
+  padding-left: 24px;
+  border-left: 2px dashed var(--border-bright);
+}
+.timeline-item {
+  position: relative;
+  padding-bottom: 24px;
+}
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -32px;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid var(--b-color);
+}
+.timeline-item.current::before {
+  background: var(--b-color);
+  box-shadow: 0 0 0 4px rgba(232,167,84,0.2);
+}
+.timeline-date {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--b-color);
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.timeline-text {
+  font-family: 'Fraunces', serif;
+  font-size: 15px;
+  color: var(--ink-dim);
+  line-height: 1.55;
+  margin: 0;
+}
+.timeline-text strong { color: var(--ink); font-weight: 600; }
+
+/* QUOTE CARDS - shorter, paraphrase-friendly */
+.quote-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 28px 0;
+}
+.quote-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 24px;
+}
+.quote-card .qmark {
+  font-family: 'Fraunces', serif;
+  font-size: 48px;
+  line-height: 0.5;
+  color: var(--border-bright);
+  display: block;
+  margin-bottom: 6px;
+}
+.quote-card .qtext {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+.quote-card .qattr {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-mute);
+  letter-spacing: 0.2px;
+}
+.quote-card .qattr strong { color: var(--ink-dim); font-weight: 600; }
+
+/* EXPERT TABLE */
+.expert-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 28px 0;
+  font-family: 'Inter', sans-serif;
+}
+.expert-table th {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--ink-mute);
+  text-align: left;
+  padding: 12px;
+  border-bottom: 2px solid var(--border);
+}
+.expert-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+.expert-table tr:hover td { background: var(--bg-card); }
+.expert-table .name { font-weight: 600; color: var(--ink); }
+.acc-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 3px;
+  background: var(--bg-elev);
+  color: var(--ink);
+  border: 1px solid var(--border-bright);
+}
+.acc-pill.top { color: var(--d-color); border-color: rgba(110,195,168,0.4); }
+
+/* SHOCK TRIGGER LIST */
+.shock-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 28px 0;
+}
+.shock-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--a-color);
+  border-radius: 4px;
+  padding: 18px 20px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+}
+.shock-item .shock-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--a-color);
+  display: block;
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+/* CALLOUT */
+.callout {
+  display: flex;
+  gap: 16px;
+  padding: 22px 24px;
+  border-radius: 6px;
+  margin: 28px 0;
+  font-family: 'Fraunces', serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.callout.warn { background: var(--b-dim); border-left: 3px solid var(--b-color); }
+.callout.danger { background: var(--a-dim); border-left: 3px solid var(--a-color); }
+.callout.info { background: var(--c-dim); border-left: 3px solid var(--c-color); }
+.callout.calm { background: var(--d-dim); border-left: 3px solid var(--d-color); }
+.callout-mark {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 22px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 2px;
+}
+.callout.warn .callout-mark { color: var(--b-color); }
+.callout.danger .callout-mark { color: var(--a-color); }
+.callout.info .callout-mark { color: var(--c-color); }
+.callout.calm .callout-mark { color: var(--d-color); }
+.callout-body { color: var(--ink-dim); }
+.callout-body strong { color: var(--ink); }
+
+/* FRICTION LIST (for legal section) */
+.friction-list {
+  margin: 24px 0;
+  padding: 0;
+  list-style: none;
+}
+.friction-list li {
+  padding: 14px 0 14px 32px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  font-family: 'Fraunces', serif;
+  font-size: 15px;
+  color: var(--ink-dim);
+}
+.friction-list li:last-child { border-bottom: none; }
+.friction-list li::before {
+  content: '\2716';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  color: var(--a-color);
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+}
+.friction-list li strong { color: var(--ink); }
+
+/* VERDICT */
+.verdict-box {
+  background: linear-gradient(135deg, var(--d-dim), rgba(110,195,168,0.02));
+  border: 1px solid rgba(110,195,168,0.3);
+  border-radius: 8px;
+  padding: 44px;
+  margin: 40px 0;
+}
+.verdict-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--d-color);
+  margin-bottom: 16px;
+}
+.verdict-text {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--ink);
+  margin-bottom: 20px;
+}
+.verdict-text em { color: var(--d-color); font-style: italic; font-weight: 600; }
+.verdict-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-mute);
+  letter-spacing: 0.5px;
+}
+.verdict-meta span { color: var(--ink-dim); }
+
+/* FOOTER */
+.foot {
+  padding: 56px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+.foot p {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 6px;
+}
+
+/* VERBATIM STATEMENT CARDS */
+.statement {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 26px 28px;
+  margin: 18px 0;
+}
+.statement.s-d { border-left-color: var(--d-color); }
+.statement.s-c { border-left-color: var(--c-color); }
+.statement.s-b { border-left-color: var(--b-color); }
+.statement.s-a { border-left-color: var(--a-color); }
+.statement.s-mixed { border-left-color: var(--ink-mute); }
+
+.statement-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.statement-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.1px;
+}
+.statement-name .acc-inline {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-mute);
+  margin-left: 8px;
+  letter-spacing: 0.5px;
+}
+.statement-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.statement-quote {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin-bottom: 14px;
+  padding-left: 18px;
+  border-left: 2px solid var(--border);
+}
+.statement-quote + .statement-quote { margin-top: -4px; }
+.statement-implication {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  margin: 0;
+}
+.statement-implication strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* UPGRADED STATEMENT BLOCKS */
+.stmt-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 28px 30px 26px;
+  margin: 20px 0;
+}
+.stmt-block.b-d { border-left-color: var(--d-color); }
+.stmt-block.b-c { border-left-color: var(--c-color); }
+.stmt-block.b-b { border-left-color: var(--b-color); }
+.stmt-block.b-a { border-left-color: var(--a-color); }
+.stmt-block.b-mixed { border-left-color: var(--ink-mute); }
+
+.stmt-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.stmt-block-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.1px;
+}
+.stmt-block-name .v24 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-mute);
+  margin-left: 8px;
+  letter-spacing: 0.5px;
+}
+
+.bucket-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 3px;
+  border: 1px solid;
+}
+.bucket-tag.b-d { color: var(--d-color); border-color: rgba(110,195,168,0.4); background: var(--d-dim); }
+.bucket-tag.b-c { color: var(--c-color); border-color: rgba(107,163,232,0.4); background: var(--c-dim); }
+.bucket-tag.b-b { color: var(--b-color); border-color: rgba(232,167,84,0.4); background: var(--b-dim); }
+.bucket-tag.b-mixed { color: var(--ink-dim); border-color: var(--border-bright); background: var(--bg-elev); }
+
+.stmt-quotes {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink);
+  padding-left: 20px;
+  border-left: 2px solid var(--border-bright);
+  margin-bottom: 18px;
+}
+.stmt-quotes .frag {
+  display: block;
+  margin-bottom: 6px;
+}
+.stmt-quotes .frag:last-child { margin-bottom: 0; }
+.stmt-quotes .frag::before {
+  content: '\201C';
+  margin-right: 2px;
+}
+.stmt-quotes .frag::after {
+  content: '\201D';
+  margin-left: 2px;
+}
+
+.stmt-row {
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  margin-bottom: 12px;
+}
+.stmt-row:last-child { margin-bottom: 0; }
+.stmt-row strong {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-right: 8px;
+}
+.stmt-row.forecast {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  color: var(--ink);
+}
+.stmt-row.forecast strong { color: var(--b-color); }
+
+/* BUCKET AGGREGATION */
+.bucket-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin: 32px 0;
+}
+.bucket-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 3px solid;
+  border-radius: 4px;
+  padding: 24px 26px;
+}
+.bucket-card.b1 { border-top-color: var(--d-color); }
+.bucket-card.b2 { border-top-color: var(--d-color); }
+.bucket-card.b3 { border-top-color: var(--c-color); }
+.bucket-card.b4 { border-top-color: var(--b-color); }
+.bucket-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--ink-mute);
+  margin-bottom: 4px;
+}
+.bucket-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 12px;
+  letter-spacing: 0.1px;
+}
+.bucket-experts {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin-bottom: 12px;
+  letter-spacing: 0.3px;
+}
+.bucket-desc {
+  font-family: 'Fraunces', serif;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  margin: 0;
+}
+.bucket-desc strong { color: var(--ink); font-weight: 600; }
+
+/* RESPONSIVE */
+@media (max-width: 640px) {
+  .hero { padding: 60px 24px; }
+  .wrap { padding: 0 22px; }
+  .ladder { grid-template-columns: 1fr; }
+  .rung { padding: 22px; }
+  .rung-letter { font-size: 44px; }
+  .rung-prob { font-size: 26px; }
+  .quote-row { grid-template-columns: 1fr; }
+  .shock-grid { grid-template-columns: 1fr; }
+  .bucket-grid { grid-template-columns: 1fr; }
+  .verdict-box { padding: 28px; }
+  .verdict-text { font-size: 17px; }
+  h2 { font-size: 28px; }
+  .countdown-panel { gap: 20px; padding: 18px 20px; }
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.fade-in.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body id="artifacts-component-root-html">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Q7 Escalation Window — April 7–14, 2026</div>
+  <div class="hero-byline"><a href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener">by <span>Unmitigated Wisdom</span></a></div>
+  <h1>Will Trump Actually Carry Out <em>“Power Plant Day”</em> in Iran?</h1>
+  <p class="hero-sub">A tracker-weighted structural analysis of the April 7 ultimatum and the most likely U.S. escalation rung between April 7 and April 14, 2026.</p>
+
+  <div class="countdown-panel">
+    <div>
+      <div class="countdown-label">Deadline</div>
+      <div class="countdown-value urgent">Apr 7 · 8:00 PM ET</div>
+    </div>
+    <div>
+      <div class="countdown-label">Window Closes</div>
+      <div class="countdown-value">Apr 14 · 8:00 PM ET</div>
+    </div>
+    <div>
+      <div class="countdown-label">Modal Verdict</div>
+      <div class="countdown-value" style="color:var(--d-color);">Option D · 48%</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- LADDER AT A GLANCE -->
+  <div class="ladder-section fade-in">
+    <div class="ladder-label">The Escalation Ladder — Highest Rung Reached, April 7–14</div>
+    <div class="ladder-title">A labyrinth of bad options. The question is which is least bad.</div>
+    <div class="ladder">
+
+      <div class="rung r-d">
+        <div class="rung-head">
+          <div class="rung-letter">D</div>
+          <div class="rung-prob">48%</div>
+        </div>
+        <div class="rung-body">
+          <h3>Postponement / Stand-Down</h3>
+          <p>No new deliberate strikes against civilian infrastructure. Continued strikes confined strictly to military combatants — air defences, missile launchers, radars, bases.</p>
+        </div>
+      </div>
+
+      <div class="rung r-c">
+        <div class="rung-head">
+          <div class="rung-letter">C</div>
+          <div class="rung-prob">30%</div>
+        </div>
+        <div class="rung-body">
+          <h3>Transport-Only Escalation</h3>
+          <p>Deliberate strikes on civilian transport infrastructure — bridges, highways, rail — but no power, water, or major oil/gas targets. The lowest civilian rung that still looks like follow-through.</p>
+        </div>
+      </div>
+
+      <div class="rung r-b">
+        <div class="rung-head">
+          <div class="rung-letter">B</div>
+          <div class="rung-prob">14%</div>
+        </div>
+        <div class="rung-body">
+          <h3>Domestic Grid Escalation</h3>
+          <p>Deliberate kinetic strikes on Iranian power generation or municipal water infrastructure, but no major oil/gas targets. The rung Trump's rhetoric explicitly points toward.</p>
+        </div>
+      </div>
+
+      <div class="rung r-a">
+        <div class="rung-head">
+          <div class="rung-letter">A</div>
+          <div class="rung-prob">8%</div>
+        </div>
+        <div class="rung-body">
+          <h3>Global Energy Escalation</h3>
+          <p>Confirmed strikes against major Iranian oil, gas, or petrochemical infrastructure — refineries, Kharg terminal, South Pars surface facilities. The rung that detonates the world economy.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SECTION 1 -->
+  <section class="fade-in">
+    <div class="section-num">Section 01 — The Setup</div>
+    <h2>The threat is real. The follow-through is <em>not the base case.</em></h2>
+    <p class="lead">On Easter Sunday, April 5, 2026, President Trump posted a threat on Truth Social: unless Iran fully reopens the Strait of Hormuz by 8:00 PM ET on Tuesday, the United States will make it "Power Plant Day, and Bridge Day." It was the most specific civilian-infrastructure threat of the war.</p>
+    <p>The threat is real. The strongest structural evidence still points away from a literal follow-through against major Iranian power or energy infrastructure in the days that follow. Iran's leverage over Hormuz, the vulnerability of Gulf energy and water systems to retaliation, and the legal and humanitarian costs of grid attacks all act as serious brakes — brakes that the rhetoric alone does not weigh.</p>
+    <p>The most likely outcome remains <strong>no new deliberate strikes on civilian infrastructure</strong> — or at most a limited transport-focused escalation that lets Trump claim follow-through without detonating the broader regional and economic trap. This is not a prediction of restraint as virtue. It is a prediction of restraint as path-of-least-disaster.</p>
+  </section>
+
+  <!-- SECTION 2 - DEADLINE DRIFT TIMELINE (NEW) -->
+  <section class="fade-in">
+    <div class="section-num">Section 02 — The Pattern</div>
+    <h2>Deadline drift is a pattern, <em>not an accident.</em></h2>
+    <p class="lead">This is not Trump's first ultimatum on Iranian infrastructure. It is at least his third. Each previous deadline was set, threatened, and then quietly slipped — pushed back, redefined, or absorbed into the next round of rhetoric. Reading the April 5 threat in isolation misses the structural signal.</p>
+
+    <div class="timeline">
+      <div class="timeline-title">Trump's Infrastructure-Threat Deadlines — A Recurring Pattern</div>
+      <div class="timeline-track">
+        <div class="timeline-item">
+          <div class="timeline-date">March 21, 2026</div>
+          <p class="timeline-text">First ultimatum: Trump warns Iran's <strong>power plants will be obliterated</strong> unless Hormuz fully reopens. Five-day extension granted within 24 hours to allow continued discussions.</p>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-date">March 24, 2026</div>
+          <p class="timeline-text">Reuters reports Gulf state warnings and fears of miscalculation helped <strong>drive Trump's pause</strong> on attacking Iranian energy infrastructure. Restraint, not resolve, prevailed.</p>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-date">March 30, 2026</div>
+          <p class="timeline-text">Trump again warns Iran to open the Strait. The threat is renewed but the operational deadline drifts to <strong>April 6</strong>.</p>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-date">April 3, 2026</div>
+          <p class="timeline-text">Fresh threats against <strong>bridges and power plants</strong>. The administration continues to broadcast escalation rhetoric while military action remains confined to combatant targets.</p>
+        </div>
+        <div class="timeline-item current">
+          <div class="timeline-date">April 5, 2026 — Easter Sunday</div>
+          <p class="timeline-text">Trump's most specific ultimatum yet: <strong>"Power Plant Day, and Bridge Day"</strong> if Hormuz is not reopened by Tuesday, April 7 at 8:00 PM ET. White House sources tell Reuters a deal is still "possible by Monday."</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <div class="callout-mark">!</div>
+      <div class="callout-body"><strong>The structural signal:</strong> Trump uses deadlines as coercive instruments, not fixed operational commitments. That does not mean he will always back down — but it means another extension, redefined deadline, or pivot to military-only targets is significantly more plausible than the rhetoric alone suggests. This is the deepest reason Option D remains the modal outcome.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 3 - HORMUZ LEVERAGE -->
+  <section class="fade-in">
+    <div class="section-num">Section 03 — The Strongest Brake</div>
+    <h2>Hormuz leverage and Gulf symmetry are the brakes <em>that actually bind.</em></h2>
+    <p class="lead">The clearest cross-source structural argument is that Iran's leverage now lies in cost imposition, not military victory. Striking power plants or oil terminals does not solve the Hormuz problem — it risks worsening it by pushing Iran toward wider retaliation against Gulf energy and water systems.</p>
+
+    <div class="quote-row">
+      <div class="quote-card">
+        <span class="qmark">“</span>
+        <p class="qtext">Hormuz is Tehran's weapon of mass disruption — more potent than even a nuclear weapon.</p>
+        <p class="qattr"><strong>Ali Vaez</strong> · International Crisis Group · April 3</p>
+      </div>
+      <div class="quote-card">
+        <span class="qmark">“</span>
+        <p class="qtext">Iran is unlikely to open Hormuz even under extreme scenarios.</p>
+        <p class="qattr"><strong>Danny Citrinowicz</strong> · Former IDF Iran Desk · April 4</p>
+      </div>
+      <div class="quote-card">
+        <span class="qmark">“</span>
+        <p class="qtext">A labyrinth of bad options.</p>
+        <p class="qattr"><strong>Bob McNally</strong> · Rapidan Energy · March 31</p>
+      </div>
+      <div class="quote-card">
+        <span class="qmark">“</span>
+        <p class="qtext">High cost and very low reward.</p>
+        <p class="qattr"><strong>Jennifer Kavanagh</strong> · Defense Priorities · April 3</p>
+      </div>
+    </div>
+
+    <p>The convergence is striking. Vaez (restraint), Citrinowicz (Israeli security realist), McNally (energy-market realist), and Kavanagh (military restraint) span the ideological spectrum — and they agree on the same structural point. Coercing Iran to reopen the Strait through wider strikes is not analytically plausible. The harder Washington pushes on infrastructure, the deeper the trap becomes.</p>
+
+    <h3>The Kharg Island Tell</h3>
+    <p>The clearest empirical evidence of restraint is what already happened on March 13. When U.S. forces struck Kharg Island, they hit <strong>military targets</strong> — naval mine storage, missile bunkers — while <strong>intentionally sparing the surrounding oil infrastructure</strong>. This was not an oversight. It was a deliberate operational choice that revealed how the Pentagon actually understands the cost ceiling. Rhetoric points one way; operational behaviour points the other.</p>
+  </section>
+
+  <!-- SECTION 4 - WHY TRANSPORT (C) -->
+  <section class="fade-in">
+    <div class="section-num">Section 04 — The Symbolic Rung</div>
+    <h2>If Trump must act, <em>"Bridge Day"</em> is cleaner than "Power Plant Day."</h2>
+    <p class="lead">If the White House decides that doing nothing would look too weak after such a public ultimatum, transport-only escalation is the most politically efficient option available.</p>
+    <p>Bridges and rail nodes are visually dramatic. They are easier to explain to a domestic audience as "limited strikes." They are more plausibly framed as dual-use military logistics targets. And critically, a transport campaign can be stopped after one or two strikes far more cleanly than a grid campaign — which, once begun, tends to either escalate or appear hollow.</p>
+    <p>Transport-only is not "good" policy. Civilians die. Supply chains collapse. The legal optics are poor. But it sits at the exact intersection of <em>symbolism and restraint</em> that an administration trapped between rhetoric and consequences would gravitate toward. It is the lowest civilian-infrastructure rung that still looks like follow-through.</p>
+    <div class="callout info">
+      <div class="callout-mark">→</div>
+      <div class="callout-body"><strong>Why C ranks above B:</strong> The decisive question is not "what did Trump threaten?" but "what is the lowest-cost rung that satisfies the credibility trap?" Transport strikes satisfy it. Grid strikes overshoot it — and trigger the legal, humanitarian, and retaliation costs covered next.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 5 - LEGAL/HUMANITARIAN FRICTION ON B (NEW) -->
+  <section class="fade-in">
+    <div class="section-num">Section 05 — The Hidden Brakes</div>
+    <h2>Why Option B has <em>more friction</em> than the rhetoric suggests.</h2>
+    <p class="lead">Grid attacks are not just "another escalation rung" on a smooth ladder. They sit on a structural cliff — one that the previous version of this analysis underweighted. The institutional, legal, and humanitarian friction around striking Iranian power generation is qualitatively heavier than around any other civilian-infrastructure category.</p>
+
+    <h3>The Legal Wall Has Already Formed</h3>
+    <p>On April 2, more than 100 U.S. legal experts publicly warned that recent American strikes and threats against Iranian power and desalination infrastructure may amount to war crimes under international humanitarian law. This is not a marginal academic protest. It is a coordinated institutional signal from the legal community that grid escalation crosses lines that energy and transport strikes do not.</p>
+
+    <h3>What "Power Plant Day" Actually Means</h3>
+    <p>The phrase obscures the cascade. A grid strike is never just a strike on a power plant. It is a strike on:</p>
+
+    <ul class="friction-list">
+      <li><strong>Hospitals.</strong> Iranian hospitals run on grid electricity. ICUs, dialysis, ventilators, operating theatres all fail within hours of a sustained outage.</li>
+      <li><strong>Water pumping and treatment.</strong> Tehran's water supply depends on electric pumps. Cut the grid and you cut the water within 24 to 48 hours.</li>
+      <li><strong>Sewage and sanitation.</strong> Pumping stations stop. Cholera and dysentery risk rises within a week.</li>
+      <li><strong>Refrigeration and food supply.</strong> Cold chains collapse. Insulin spoils. Vaccine stockpiles degrade.</li>
+      <li><strong>Heating and cooling.</strong> Winter is over but elderly and infant mortality rise sharply with prolonged outages.</li>
+    </ul>
+
+    <p>This cascade is exactly what the legal experts are pointing at. It is also what makes grid strikes <em>operationally</em> different from energy or transport strikes — they are practically impossible to scope as "limited" once initiated, because the second-order civilian effects are immediate and uncontainable.</p>
+
+    <div class="callout danger">
+      <div class="callout-mark">×</div>
+      <div class="callout-body"><strong>The implication:</strong> Even if Trump genuinely wants to execute "Power Plant Day," the institutional resistance — from JAGs, from the State Department, from coalition legal advisors, from international partners — is meaningfully higher than for any other rung. Rhetoric is cheap. Authorising a campaign that the legal community has pre-classified as potentially criminal is not.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 6 - EXPERT PANEL -->
+  <section class="fade-in">
+    <div class="section-num">Section 06 — The Panel</div>
+    <h2>Tracker-weighted anchor experts.</h2>
+    <p class="lead">The weighting backbone for this forecast comes from the Expert Prediction Tracker V24 — 64 experts, 501 predictions, aggregate accuracy of 70%. The eight experts below are the strongest Iran/Hormuz-relevant scorers in the file, weighted by recent track record on this conflict specifically.</p>
+
+    <table class="expert-table">
+      <thead>
+        <tr>
+          <th>Expert</th>
+          <th>Profile</th>
+          <th>V24</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="name">Ray Takeyh</td><td>CFR / establishment Iran realist</td><td><span class="acc-pill top">88</span></td></tr>
+        <tr><td class="name">Danny Citrinowicz</td><td>Israeli security realist</td><td><span class="acc-pill top">84</span></td></tr>
+        <tr><td class="name">Narges Bajoghli</td><td>Iran society / regime resilience</td><td><span class="acc-pill top">83</span></td></tr>
+        <tr><td class="name">Jason Brodsky</td><td>Hawkish deterrence / IRGC posture</td><td><span class="acc-pill">82</span></td></tr>
+        <tr><td class="name">Behnam Ben Taleblu</td><td>FDD / pressure-camp analyst</td><td><span class="acc-pill">80</span></td></tr>
+        <tr><td class="name">John Mearsheimer</td><td>Offensive realist / escalation skeptic</td><td><span class="acc-pill">77</span></td></tr>
+        <tr><td class="name">Bob McNally</td><td>Energy-market realist</td><td><span class="acc-pill">75</span></td></tr>
+        <tr><td class="name">Vali Nasr</td><td>Regional realist</td><td><span class="acc-pill">75</span></td></tr>
+        <tr><td class="name">Jennifer Kavanagh</td><td>Restraint / military overreach</td><td><span class="acc-pill">75</span></td></tr>
+        <tr><td class="name">Ali Vaez</td><td>Diplomatic restraint / cost-imposition</td><td><span class="acc-pill">67</span></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:13px;color:var(--ink-mute);font-family:&#39;Inter&#39;,sans-serif;">Supplementary texture only: Karim Sadjadpour (58), George Friedman (67), Scott Ritter (45). Useful for framing but not anchoring the quantitative case.</p>
+
+    <h3>The Cross-Ideological Convergence</h3>
+    <p>The reason this forecast has confidence despite the deadline-sensitive uncertainty is that the anti-A/B logic spans four institutional cultures that rarely agree on anything: restraint advocates (Kavanagh, Vaez), market realists (McNally), centrist Iran specialists (Nasr, Bajoghli), and at least one former Israeli intelligence analyst (Citrinowicz). The hawkish side — Brodsky, Ben Taleblu — keeps escalation risk genuinely alive. But even the hawks are not making a fresh, specific case that <em>oil and grid strikes</em> are the optimal next move. Their case is "escalation may continue," not "Power Plant Day is the right play."</p>
+  </section>
+
+  <!-- SECTION 7 - VERBATIM STATEMENTS (UPGRADED) -->
+  <section class="fade-in">
+    <div class="section-num">Section 07 — What the Experts Argue</div>
+    <h2>What the experts <em>actually argue,</em> and how it feeds the model.</h2>
+    <p class="lead">The structural forecast above is built on the recent public statements of the panel. Each expert below gets four things: a short verbatim fragment, the causal reasoning behind it, the structural bucket the argument belongs to, and how that bucket pushes the forecast. The colour coding maps each expert's argument to the rung it most directly supports.</p>
+
+    <!-- 1) CITRINOWICZ -->
+    <div class="stmt-block b-d">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">Danny Citrinowicz <span class="v24">V24 · 84</span></div>
+        <div class="bucket-tag b-d">Bucket 1 · Coercion Failure</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">not going to capitulate, not in a million years</span>
+        <span class="frag">If somebody thinks that by air campaign you can topple this regime … we should think twice</span>
+        <span class="frag">the Gulf States are the weakest part of the chain</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>Citrinowicz's argument is structural, not stubbornness-based. Visible capitulation under U.S. pressure would impose existential legitimacy costs on the Iranian regime — meaning coercion by bombing does not produce surrender in the normal way. The tracker validated this logic when his February 2025 call (Washington was raising the bet on the assumption Tehran would fold) was scored TRUE after Iran did not fold, survived the decapitation shock, and escalated through Hormuz and Gulf attacks.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>One of the strongest reasons B is not the base case. If bombing the grid does not plausibly produce capitulation, the logic for "Power Plant Day" weakens sharply. The Gulf-pressure observation cuts the same way: Iran attacks Gulf states because they are the "weakest part of the chain," meaning wider U.S. civilian-infrastructure escalation risks <em>helping</em> Tehran's pressure campaign rather than breaking it.</p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D up · C up · B down · A down</p>
+    </div>
+
+    <!-- 2) VAEZ -->
+    <div class="stmt-block b-d">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">Ali Vaez <span class="v24">V24 · 67</span></div>
+        <div class="bucket-tag b-d">Bucket 1 · Cost Imposition</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">Iran's strategy is to raise the cost of a prolonged standoff</span>
+        <span class="frag">Iran telegraphed from the beginning</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>Vaez's structural point is that Iran is not trying to "win" by defeating the United States conventionally. It is trying to make the war <em>unsustainable</em> for Washington and its partners through oil, LNG, shipping, insurance, and allied-vulnerability effects. The tracker scored TRUE both his warning that Iran would regionalize the conflict and close Hormuz, and his argument that Iran's strategy is to raise the cost of a prolonged standoff through economic disruption.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>This reasoning directly pushes down A and B. If Tehran's strategy is cost-imposition, then hitting power plants or oil infrastructure does not solve the problem — it more likely deepens the trap by widening retaliatory space and increasing oil-price pain. Vaez offers a causal model: <em>escalation against civilian infrastructure strengthens the adversary's chosen lever.</em></p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D up · C neutral · B down · A down</p>
+    </div>
+
+    <!-- 3) MCNALLY -->
+    <div class="stmt-block b-c">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">Bob McNally <span class="v24">V24 · 75</span></div>
+        <div class="bucket-tag b-c">Bucket 3 · Energy Realism</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">labyrinth of bad options</span>
+        <span class="frag">Trump has to do something</span>
+        <span class="frag">catastrophic setback</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>McNally is often misread. He is not saying the U.S. can easily solve Hormuz by broader bombing. He is saying the United States is trapped in a labyrinth of bad options: either some form of military control over the Strait, an unstable truce, or continued economic damage. The tracker validates his Hormuz/oil realism strongly — his January warning that the market underestimated Iran's disruption ability, his February 28 "real deal" warning, and his March 4 warning that Ras Laffan was a "sitting duck" all scored TRUE.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>McNally keeps the pressure on Trump real and stops the report from drifting naively dovish. But his causal model still does not favour A. The real problem is maritime control, not cathartic punishment of Iranian civilian infrastructure. That raises the odds Trump feels compelled to act, but does not raise the odds the action will be an optimal power/oil strike. In practice, this pushes probability toward C as the lowest visible rung, while keeping D viable.</p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D neutral · C up · B neutral · A down</p>
+    </div>
+
+    <!-- 4) KAVANAGH -->
+    <div class="stmt-block b-c">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">Jennifer Kavanagh <span class="v24">V24 · 75</span></div>
+        <div class="bucket-tag b-c">Bucket 3 · Symbolic Follow-Through</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">high cost and very low reward</span>
+        <span class="frag">sitting ducks</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>Kavanagh's argument is operational, not moral. Even aggressive options — taking islands, seizing uranium, deeper operations — are costly, exposed, and unlikely to end the underlying Iranian challenge. The tracker scored TRUE her broader warnings that war with Iran would squander America's military edge and that the Houthis were undeterred by punitive strikes. Her track record on the "force doesn't solve persistent regional coercion" problem is solid.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>Kavanagh is the expert who best underwrites the page's C-over-B logic. If every major option is costly and low-reward, then the administration's most plausible move under political pressure is not the heaviest blow available — it is the lowest civilian-infrastructure rung that still creates visible theatre. That is why transport-only escalation is the main alternative to D, and why B remains a tail risk rather than the base case.</p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D up · C up · B down · A down</p>
+    </div>
+
+    <!-- 5) MEARSHEIMER -->
+    <div class="stmt-block b-d">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">John Mearsheimer <span class="v24">V24 · 77</span></div>
+        <div class="bucket-tag b-d">Bucket 1 · Gulf Blowback</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">no good military option</span>
+        <span class="frag">would be foolish</span>
+        <span class="frag">well above $100</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>Mearsheimer offers two strands. The general one: Trump has no good military option in Iran, meaning every further step risks deeper entrapment rather than decisive leverage. The specific one: the tracker scored TRUE his March 18 call that bombing South Pars would trigger Iranian retaliation against Gulf oil and gas infrastructure and drive prices "well above $100." Iran subsequently hit Ras Laffan and prices surged.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>Use Mearsheimer primarily to keep A low. His logic is not that Trump will never escalate. It is that certain escalations are strategically foolish because they worsen the exact political-economic pressures Washington is trying to escape. That pushes strongly against "solve Hormuz by bombing oil/gas," and indirectly against B, because grid escalation also widens the regional cost spiral.</p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D up · C up · B down · A strongly down</p>
+    </div>
+
+    <!-- 6) BAJOGHLI -->
+    <div class="stmt-block b-d">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">Narges Bajoghli <span class="v24">V24 · 83</span></div>
+        <div class="bucket-tag b-d">Bucket 2 · Regime Resilience</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">a walk in the park</span>
+        <span class="frag">shows no signs of immediate collapse</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>Bajoghli's causal model is that the war is already on a regionalization pathway and that outsiders consistently overread the fragility of the Islamic Republic. The tracker scored TRUE her February 2026 warning that the regime had reestablished control and showed no signs of immediate collapse. Her March 4 warning that the conflict could grow into a regional war making the past quarter-century of Middle Eastern wars look like "a walk in the park" is unresolved but directionally tracking.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>This matters because one latent rationale for "Power Plant Day" is a coercive-punishment fantasy: break the grid, intensify suffering, and the regime cracks or the public turns decisively against it. Bajoghli's reasoning cuts against that. In her framework, more punishment more plausibly <em>regionalizes</em> and <em>hardens</em> than topples. Another reason B is not the modal outcome.</p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D up · C neutral · B down · A down</p>
+    </div>
+
+    <!-- 7) TAKEYH -->
+    <div class="stmt-block b-d">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">Ray Takeyh <span class="v24">V24 · 88</span></div>
+        <div class="bucket-tag b-d">Bucket 2 · Ideological System</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">Iran is not a personalised dictatorship, it's an ideological system</span>
+        <span class="frag">Regime rattled but resilient</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>Takeyh provides the establishment-coded version of the same resilience logic seen in Citrinowicz and Bajoghli. If Iran is an ideological system rather than a personalised dictatorship, then decapitation, punitive bombing, and shock effects do not automatically translate into regime collapse or capitulation. The tracker scored TRUE his March 2026 call that the regime was rattled but resilient — making him one of the strongest establishment validators of the anti-collapse argument.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>Takeyh shows this is not just a restraint-camp claim. A high-scoring, establishment Iran hand is also saying that regime survival mechanisms remain intact. That weakens any case for B as a "one big shove" that suddenly produces compliance. It keeps D and C ahead.</p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D up · C up · B down · A neutral</p>
+    </div>
+
+    <!-- 8) NASR -->
+    <div class="stmt-block b-d">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">Vali Nasr <span class="v24">V24 · 75</span></div>
+        <div class="bucket-tag b-d">Bucket 2 · Hardening Effect</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">longer, messier and exacting a cost</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>Nasr argues that Trump had hoped for a quick war but is now in a long one, and that from Tehran's vantage point Trump has no credibility as a negotiator. The tracker scored TRUE his June 2025 call that strikes would strengthen hardliners and undermine any future diplomatic path — vindicated when the IRGC consolidated control around Mojtaba after the February decapitation strike.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>Iranian compliance with the ultimatum is unlikely under this framework, because the regime's incentives push toward demonstrating endurance rather than yielding to coercion. Washington's best near-term choices are therefore more likely to be D or C than A or B.</p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D up · C up · B down · A down</p>
+    </div>
+
+    <!-- 9) BRODSKY + BEN TALEBLU -->
+    <div class="stmt-block b-b">
+      <div class="stmt-block-head">
+        <div class="stmt-block-name">Jason Brodsky <span class="v24">V24 · 82</span> &nbsp;+&nbsp; Behnam Ben Taleblu <span class="v24">V24 · 80</span></div>
+        <div class="bucket-tag b-b">Bucket 4 · Escalation Pressure</div>
+      </div>
+      <div class="stmt-quotes">
+        <span class="frag">the US may have to escalate</span>
+        <span class="frag">rebuilding deterrence</span>
+        <span class="frag">defined by energy and economics</span>
+        <span class="frag">buying time for Marines to arrive</span>
+      </div>
+      <p class="stmt-row"><strong>Reasoning</strong>These two stop the page from looking one-sided. Brodsky's reasoning is that the IRGC around Mojtaba may not want the war to end yet because they need to rebuild deterrence, and that if Iran keeps attacking under a cease-fire or partial pause, Washington may feel forced to escalate further. Ben Taleblu's logic is that the conflict is increasingly defined by energy and economics, and that Trump's rhetoric may be buying time for a deeper campaign. The tracker supports both as serious voices — Brodsky's snapback/conflict acceleration call scored TRUE, and Ben Taleblu scores 80 overall.</p>
+      <p class="stmt-row"><strong>Forecast Impact</strong>This bucket is why B is not zero. Without Brodsky and Ben Taleblu, the model would drift even more heavily toward D and C. Their arguments say that if Iran keeps using Hormuz and regional attacks to rebuild deterrence, Washington may decide narrower symbolic moves are insufficient. But even here, the case is "escalation pressure exists," not "power-grid strikes are clearly the optimal move." That is why B sits at 14%, not 40% or 80%.</p>
+      <p class="stmt-row forecast"><strong>Pushes</strong>D down · C neutral · B up · A slightly up</p>
+    </div>
+
+    <!-- AGGREGATION SUBSECTION -->
+    <h3 style="margin-top:56px;">How these arguments aggregate into the forecast</h3>
+    <p>The expert evidence is not being averaged blindly. It is being grouped into <strong>four causal buckets</strong> — each capturing a distinct line of structural reasoning — and the forecast follows from how those buckets weigh against each other.</p>
+
+    <div class="bucket-grid">
+      <div class="bucket-card b1">
+        <div class="bucket-num">Bucket 01</div>
+        <div class="bucket-name">Coercion Failure / Hormuz Leverage</div>
+        <div class="bucket-experts">Citrinowicz · Vaez · McNally · Mearsheimer</div>
+        <p class="bucket-desc">Wider bombing does not cleanly reopen Hormuz; it more likely widens the trap. <strong>The strongest bucket.</strong> The main reason A stays low and B remains sub-leading.</p>
+      </div>
+      <div class="bucket-card b2">
+        <div class="bucket-num">Bucket 02</div>
+        <div class="bucket-name">Regime Resilience</div>
+        <div class="bucket-experts">Citrinowicz · Bajoghli · Takeyh · Nasr</div>
+        <p class="bucket-desc">Iran is battered but not near immediate collapse. Punitive escalation more plausibly hardens than shatters the regime. <strong>The second-strongest bucket.</strong> Another reason B is not the base case.</p>
+      </div>
+      <div class="bucket-card b3">
+        <div class="bucket-num">Bucket 03</div>
+        <div class="bucket-name">Symbolic Follow-Through</div>
+        <div class="bucket-experts">Kavanagh · Reuters deadline pattern · bridge precedent</div>
+        <p class="bucket-desc">If Trump must act to satisfy the ultimatum politically, transport is the cleanest available rung. <strong>The main reason C sits above B</strong> rather than below it.</p>
+      </div>
+      <div class="bucket-card b4">
+        <div class="bucket-num">Bucket 04</div>
+        <div class="bucket-name">Genuine Escalation Pressure</div>
+        <div class="bucket-experts">Brodsky · Ben Taleblu</div>
+        <p class="bucket-desc">Real tail risk that Washington escalates harder if Iran keeps rebuilding deterrence through Hormuz and regional attacks. <strong>The reason B is 14%, not single digits.</strong></p>
+      </div>
+    </div>
+
+    <p>From these four buckets, the forecast follows naturally:</p>
+    <ul class="friction-list">
+      <li><strong>D wins</strong> because Buckets 1 and 2 are both stronger than the escalation-pressure bucket.</li>
+      <li><strong>C comes second</strong> because Bucket 3 shows the most plausible way for Trump to "do something" without detonating the full costs of A or B.</li>
+      <li><strong>B survives as a real tail risk</strong> because Bucket 4 is not imaginary — the hawkish escalation logic is genuine, just narrower than the rhetoric suggests.</li>
+      <li><strong>A stays lowest</strong> because the strongest expert logic says energy strikes worsen the very problem they are supposed to solve.</li>
+    </ul>
+
+    <div class="callout calm">
+      <div class="callout-mark">◊</div>
+      <div class="callout-body"><strong>Why this aggregation is defensible:</strong> Buckets 1 and 2 are not just two restatements of the same argument. They attack the case for B from different angles — Bucket 1 says coercion does not work mechanically, Bucket 2 says it does not work institutionally. Both must fail for B to become the base case. Meanwhile, Bucket 4 must succeed alone to push B above C. The asymmetry is what produces the <em>D 48 / C 30 / B 14 / A 8</em> distribution.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 8 - SHOCK TRIGGERS -->
+  <section class="fade-in">
+    <div class="section-num">Section 08 — What Would Move B Higher</div>
+    <h2>The forecast is alive, <em>not static.</em></h2>
+    <p class="lead">A weighted forecast at this distance from a deadline is only useful if it tells you what would change the distribution. Below are the four shocks that, if they occurred before April 7, would shift weight from D and C toward B — and only secondarily toward A.</p>
+
+    <div class="shock-grid">
+      <div class="shock-item">
+        <span class="shock-num">Shock 01</span>
+        <strong>A fresh Iranian strike causing large U.S. military casualties.</strong> Mass-casualty event would force a domestic political response that overwhelms institutional restraint.
+      </div>
+      <div class="shock-item">
+        <span class="shock-num">Shock 02</span>
+        <strong>A dramatic attack on a major Gulf civilian utility.</strong> If Iran preemptively crosses the symmetric red line, the legal and reputational cost of grid escalation drops sharply for Washington.
+      </div>
+      <div class="shock-item">
+        <span class="shock-num">Shock 03</span>
+        <strong>A new merchant-shipping disaster in or near Hormuz.</strong> A tanker explosion or major casualty event would create the visual catalyst the administration currently lacks.
+      </div>
+      <div class="shock-item">
+        <span class="shock-num">Shock 04</span>
+        <strong>A Trump statement scoping grid attacks as a one-off.</strong> If the administration explicitly frames "Power Plant Day" as a single coercive act rather than the start of a campaign, institutional resistance softens.
+      </div>
+    </div>
+
+    <p>Absent one of these shocks, the best weighted read remains <strong>D &gt; C &gt;&gt; B &gt; A</strong>. The forecast is not a prediction that nothing will happen. It is a prediction that whatever happens is more likely to be a continuation of the existing pattern — military-target strikes, deadline drift, symbolic gestures — than a clean qualitative jump to civilian infrastructure.</p>
+  </section>
+
+  <!-- SECTION 8 - VERDICT -->
+  <section class="fade-in">
+    <div class="section-num">Section 09 — Final Judgment</div>
+    <h2>The verdict.</h2>
+
+    <div class="verdict-box">
+      <div class="verdict-label">Modal Outcome · April 7–14 Window</div>
+      <div class="verdict-text">The April 5 ultimatum is real. The best weighted read is still that Trump is more likely to <em>delay, narrow, or symbolically satisfy</em> the threat than to carry it out literally against major Iranian power or energy infrastructure within the April 7–14 window. The modal outcome is <em>Option D — tactical stand-down</em>, with Option C as the main alternative. Option B remains a live tail risk because the rhetoric explicitly points there, but the structural brakes — legal, humanitarian, retaliatory, and operational — are stronger than the rhetoric alone suggests. Option A is the least likely because the administration has already shown real restraint around energy infrastructure when faced with Hormuz blowback and Gulf vulnerability.</div>
+      <div class="verdict-meta">FORECAST SPLIT · <span>D 48 / C 30 / B 14 / A 8</span> · CONFIDENCE: <span>MODERATE, DEADLINE-SENSITIVE</span></div>
+    </div>
+
+    <div class="callout calm">
+      <div class="callout-mark">♦</div>
+      <div class="callout-body"><strong>One sentence summary:</strong> Trump's loudest threat of the war points at Option B, but the structural evidence still favours Option D — because deadline drift is a pattern, the legal wall around grid strikes has already formed, and the Pentagon's own behaviour at Kharg Island three weeks ago revealed how restraint actually operates when rhetoric meets consequences.</div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <p>Expert Prediction Tracker V24 · Q7 Escalation Window Series</p>
+    <p>Assessment based on publicly available expert statements and tracker accuracy data</p>
+  </div>
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, { threshold: 0.08 });
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+</script>
+
+
+</body></html>

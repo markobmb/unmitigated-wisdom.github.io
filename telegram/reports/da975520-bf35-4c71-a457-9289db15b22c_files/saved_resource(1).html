@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            window.parent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            window.parent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            window.parent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        let requestId = 0;
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = requestId++;
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream
+                resolve(new Response(stream, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                }));
+              },
+              reject,
+              channelId
+            });
+            
+            window.parent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          if (event.data.type === 'takeScreenshot') {
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              window.parent.postMessage({
+                type: 'screenshotError',
+                error: new Error('Root element not found'),
+              }, '*');
+            }
+            const screenshot = await htmlToImage.toPng(rootElement, {
+              imagePlaceholder:
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+            });
+            window.parent.postMessage({
+              type: 'screenshotData',
+              data: screenshot,
+            }, '*');
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              window.parent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            window.parent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            window.parent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          window.parent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          window.parent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Structural Forecast Briefing — 2026 Iran War</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,400&amp;family=JetBrains+Mono:wght@400;600&amp;family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0a0a0c;
+  --paper: #f4f1eb;
+  --cream: #ece8df;
+  --warm-gray: #b5ada2;
+  --red-accent: #c0392b;
+  --red-dark: #922b21;
+  --gold: #c9a84c;
+  --blue-steel: #2c3e6b;
+  --teal: #1a6b5a;
+  --muted: #6b6560;
+  --light-line: rgba(10,10,12,0.08);
+  --serif: 'Source Serif 4', Georgia, serif;
+  --display: 'Playfair Display', Georgia, serif;
+  --sans: 'DM Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { font-size: 17px; scroll-behavior: smooth; }
+
+body {
+  font-family: var(--serif);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.72;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- UTILITY --- */
+.container { max-width: 920px; margin: 0 auto; padding: 0 2rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* --- HEADER --- */
+.masthead {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 1rem 0;
+  border-bottom: 3px solid var(--red-accent);
+}
+.masthead-inner {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--warm-gray);
+}
+.masthead-inner .classification {
+  color: var(--red-accent); font-weight: 600;
+}
+
+/* --- HERO --- */
+.hero {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 4.5rem 0 5rem;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px),
+    repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.02) 39px, rgba(255,255,255,0.02) 40px);
+  pointer-events: none;
+}
+.hero-kicker {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--red-accent);
+  margin-bottom: 1.4rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.hero-kicker::before {
+  content: '';
+  width: 28px; height: 2px; background: var(--red-accent);
+}
+.hero h1 {
+  font-family: var(--display);
+  font-size: 3.2rem;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.5rem;
+  max-width: 780px;
+}
+.hero-sub {
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 300;
+  line-height: 1.6;
+  color: rgba(244,241,235,0.72);
+  max-width: 640px;
+}
+.hero-meta {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex; gap: 2.5rem; flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--warm-gray);
+}
+.hero-meta span strong { color: var(--paper); font-weight: 600; }
+
+/* --- SCORECARD --- */
+.scorecard-section { padding: 3.5rem 0; background: var(--cream); border-bottom: 1px solid var(--light-line); }
+.scorecard-title {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.scorecard-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: rgba(10,10,12,0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.score-card {
+  background: var(--paper);
+  padding: 1.8rem 1.2rem;
+  text-align: center;
+  position: relative;
+}
+.score-card .q-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.score-card .q-title {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 1rem;
+  line-height: 1.35;
+  min-height: 2.4em;
+}
+.score-card .prob {
+  font-family: var(--display);
+  font-size: 2.6rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.score-card .prob-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 0.3rem;
+}
+.prob-yes { color: var(--teal); }
+.prob-no { color: var(--red-accent); }
+.score-card .direction {
+  display: inline-block;
+  margin-top: 0.9rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.dir-yes { background: rgba(26,107,90,0.1); color: var(--teal); }
+.dir-no { background: rgba(192,57,43,0.1); color: var(--red-accent); }
+.consensus-badge {
+  font-family: var(--mono); font-size: 0.52rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--warm-gray); margin-top: 0.6rem;
+}
+
+/* --- SECTION STYLING --- */
+.q-section { padding: 4rem 0; border-bottom: 1px solid var(--light-line); }
+.q-section:last-of-type { border-bottom: none; }
+
+.q-header {
+  display: flex; align-items: flex-start; gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--light-line);
+}
+.q-number {
+  flex-shrink: 0;
+  width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 4px;
+}
+.q-header-text .q-market-title {
+  font-family: var(--display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+.q-header-text .q-resolution {
+  font-family: var(--serif);
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+h3 {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 2.2rem 0 1rem;
+  color: var(--ink);
+}
+h3.arg-header {
+  display: flex; align-items: center; gap: 0.8rem;
+}
+h3.arg-header::before {
+  content: '';
+  width: 18px; height: 2px;
+  background: var(--red-accent);
+  flex-shrink: 0;
+}
+
+p { margin-bottom: 1rem; }
+
+.expert-quote {
+  margin: 1.5rem 0;
+  padding: 1.2rem 1.5rem;
+  background: rgba(10,10,12,0.025);
+  border-left: 3px solid var(--ink);
+  border-radius: 0 4px 4px 0;
+}
+.expert-quote .eq-attr {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.eq-attr .acc-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 2px;
+  font-size: 0.55rem;
+  font-weight: 600;
+}
+.acc-high { background: rgba(26,107,90,0.12); color: var(--teal); }
+.acc-med { background: rgba(201,168,76,0.15); color: #8a7030; }
+.acc-low { background: rgba(192,57,43,0.1); color: var(--red-accent); }
+
+.expert-quote blockquote {
+  font-family: var(--serif);
+  font-size: 0.92rem;
+  font-style: italic;
+  line-height: 1.7;
+  color: rgba(10,10,12,0.82);
+}
+
+.ideology-tag {
+  display: inline-block;
+  padding: 0.12rem 0.5rem;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.ideo-realist { background: #e8e3d8; color: #5a5347; }
+.ideo-hawk { background: #f0ddd9; color: #8b3a2f; }
+.ideo-dove { background: #d9e8e4; color: #2a5e50; }
+.ideo-centrist { background: #dde3ef; color: #3a4d7a; }
+.ideo-regional { background: #eee4d6; color: #7a5c30; }
+.ideo-energy { background: #e0e4d6; color: #4a5830; }
+.ideo-military { background: #dddde4; color: #4a4a5a; }
+.ideo-china { background: #e4dde0; color: #5a3a4a; }
+
+.prob-box {
+  margin: 2.5rem 0;
+  padding: 2rem;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 6px;
+  display: flex; align-items: center; gap: 2rem;
+}
+.prob-box .pb-number {
+  font-family: var(--display);
+  font-size: 3.2rem;
+  font-weight: 900;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.pb-yes { color: #5dd9b8; }
+.pb-no { color: #f07070; }
+.prob-box .pb-text {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: rgba(244,241,235,0.72);
+}
+.prob-box .pb-text strong { color: var(--paper); }
+
+.consensus-meter {
+  margin: 1rem 0 0;
+  display: flex; align-items: center; gap: 0.8rem;
+  font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+}
+.cm-bar { height: 4px; border-radius: 2px; background: #ddd; flex: 1; max-width: 200px; overflow: hidden; }
+.cm-fill { height: 100%; border-radius: 2px; }
+.cm-fill.high { background: var(--teal); }
+.cm-fill.extreme { background: var(--gold); }
+.cm-fill.mixed { background: var(--blue-steel); }
+
+/* --- WEIGHT TABLE --- */
+.weight-table {
+  width: 100%; border-collapse: collapse; margin: 1.5rem 0;
+  font-family: var(--sans); font-size: 0.8rem;
+}
+.weight-table th {
+  font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 0.6rem 0.8rem; text-align: left;
+  border-bottom: 2px solid var(--ink);
+}
+.weight-table td {
+  padding: 0.55rem 0.8rem; border-bottom: 1px solid var(--light-line);
+  vertical-align: top;
+}
+.weight-table tr:last-child td { border-bottom: 2px solid var(--ink); }
+
+/* --- DEPENDENCY CHAIN --- */
+.chain-section {
+  padding: 4rem 0;
+  background: var(--ink);
+  color: var(--paper);
+}
+.chain-section h2 {
+  font-family: var(--display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+.chain-intro {
+  font-size: 0.92rem;
+  color: rgba(244,241,235,0.65);
+  margin-bottom: 2.5rem;
+  max-width: 640px;
+}
+.chain-flow {
+  display: flex; flex-direction: column; gap: 0;
+}
+.chain-node {
+  display: flex; align-items: stretch; gap: 1.5rem;
+}
+.chain-pipe {
+  width: 40px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+.chain-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--red-accent);
+  background: var(--ink);
+  flex-shrink: 0;
+}
+.chain-line { flex: 1; width: 2px; background: rgba(192,57,43,0.3); }
+.chain-content {
+  padding: 0 0 2.5rem;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: rgba(244,241,235,0.72);
+}
+.chain-content strong { color: var(--paper); }
+.chain-content .chain-label {
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--red-accent); margin-bottom: 0.4rem;
+}
+
+/* --- FOOTER --- */
+.report-footer {
+  padding: 3rem 0;
+  border-top: 3px solid var(--red-accent);
+  background: var(--ink);
+  color: var(--warm-gray);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 2;
+  text-align: center;
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 800px) {
+  html { font-size: 15px; }
+  .hero h1 { font-size: 2.2rem; }
+  .scorecard-grid { grid-template-columns: repeat(3, 1fr); }
+  .prob-box { flex-direction: column; text-align: center; }
+  .hero-meta { flex-direction: column; gap: 0.8rem; }
+  .q-header { flex-direction: column; gap: 0.8rem; }
+}
+@media (max-width: 520px) {
+  .scorecard-grid { grid-template-columns: 1fr 1fr; }
+  .container { padding: 0 1.2rem; }
+}
+</style>
+</head>
+<body id="artifacts-component-root-html">
+
+<!-- MASTHEAD -->
+<div class="masthead">
+  <div class="container masthead-inner">
+    <span><a href="https://t.me/unmitigated_wisdom" style="color:var(--warm-gray);text-decoration:none;border-bottom:1px solid rgba(181,173,162,0.3);">Unmitigated Wisdom</a> · Expert Prediction Tracker V24</span>
+    <span class="classification">Assessment Date: April 1, 2026</span>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container" style="position:relative; z-index:1;">
+    <div class="hero-kicker">Dual-Panel Causal Analysis</div>
+    <h1>The Five Questions:<br>Structural Forecasts for the 2026 Iran War</h1>
+    <p class="hero-sub">A weighted probabilistic assessment synthesizing the Expert Prediction Tracker V24 panel (64 experts, 501 predictions) with structural causal reasoning across the full ideological spectrum — from restraint realists to interventionist hawks — on ceasefire, ground forces, Hormuz, oil prices, and regime survival.</p>
+    <div style="margin-top:1.5rem; font-family:var(--sans); font-size:0.88rem; color:rgba(244,241,235,0.85);">
+      By <a href="https://t.me/unmitigated_wisdom" style="color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(201,168,76,0.4);font-weight:600;">Unmitigated Wisdom</a>
+    </div>
+    <div class="hero-meta">
+      <span>Panel: <strong>64 Tracked Experts</strong></span>
+      <span>Resolved predictions: <strong>461</strong></span>
+      <span>Aggregate accuracy: <strong>70%</strong></span>
+      <span>Conflict day: <strong>32</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- SCORECARD -->
+<div class="scorecard-section">
+  <div class="container">
+    <div class="scorecard-title">Weighted Consensus Forecast — Probability of YES Resolution</div>
+    <div class="scorecard-grid">
+      <div class="score-card">
+        <div class="q-label">Q1</div>
+        <div class="q-title">Ceasefire by June 30</div>
+        <div class="prob prob-no">15%</div>
+        <div class="prob-label prob-no">Yes</div>
+        <div class="direction dir-no">Resolves No</div>
+        <div class="consensus-badge">Cross-Ideological</div>
+      </div>
+      <div class="score-card">
+        <div class="q-label">Q2</div>
+        <div class="q-title">Ground Forces by June 30</div>
+        <div class="prob prob-yes">68%</div>
+        <div class="prob-label prob-yes">Yes</div>
+        <div class="direction dir-yes">Resolves Yes</div>
+        <div class="consensus-badge">Mixed Consensus</div>
+      </div>
+      <div class="score-card">
+        <div class="q-label">Q3</div>
+        <div class="q-title">Hormuz ≥50% by Sept 30</div>
+        <div class="prob" style="color:var(--blue-steel);">48%</div>
+        <div class="prob-label" style="color:var(--blue-steel);">Yes</div>
+        <div class="direction" style="background:rgba(44,62,107,0.1);color:var(--blue-steel);">Toss-Up</div>
+        <div class="consensus-badge">Panel Divergence</div>
+      </div>
+      <div class="score-card">
+        <div class="q-label">Q4</div>
+        <div class="q-title">Brent &gt;$150 by July 31</div>
+        <div class="prob" style="color:var(--gold);">52%</div>
+        <div class="prob-label" style="color:var(--gold);">Yes</div>
+        <div class="direction" style="background:rgba(201,168,76,0.12);color:#8a7030;">Lean Yes</div>
+        <div class="consensus-badge">Conditional</div>
+      </div>
+      <div class="score-card">
+        <div class="q-label">Q5</div>
+        <div class="q-title">Regime Survives Dec 31</div>
+        <div class="prob prob-yes">92%</div>
+        <div class="prob-label prob-yes">Yes</div>
+        <div class="direction dir-yes">Resolves Yes</div>
+        <div class="consensus-badge">Strongest Consensus</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Q1 -->
+<div class="q-section">
+  <div class="container">
+    <div class="q-header">
+      <div class="q-number">Q1</div>
+      <div class="q-header-text">
+        <div class="q-market-title">Will There Be a US-Iran Ceasefire Agreement by June 30, 2026?</div>
+        <div class="q-resolution">Requires publicly announced, mutually acknowledged halt with named effective date. Unilateral pauses and backchannels do not qualify.</div>
+      </div>
+    </div>
+
+    <h3 class="arg-header">Argument 1 — The Succession Consolidation Trap</h3>
+    <p><strong>Weight: Very Heavy</strong> | Supported across full ideological spectrum</p>
+    <p>The assassination of Ali Khamenei on February 28 created a structural impossibility for Tehran to publicly sign a ceasefire within months. Mojtaba Khamenei, in the nascent stages of consolidating authority over the IRGC and Guardian Council, cannot sign a public treaty with the state responsible for his father's death without appearing to capitulate — which would invite internal destabilization. The perpetuation of the conflict serves as a vital unifying mechanism to prevent a resurgence of mass protests.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        John Mearsheimer · Mar 11, 2026 
+        <span class="acc-badge acc-high">77% Accuracy</span> 
+        <span class="ideology-tag ideo-realist">Realist</span>
+      </div>
+      <blockquote>"The war is not going well for the United States and President Trump would like to put an end to it. The problem is he can't find an off-ramp. Nobody can tell a plausible story about how this war ends... The Iranians have an incentive to continue the war, to turn it into a protracted war of attrition, and they have the means to do that."</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Jason Brodsky · Mar 2026 
+        <span class="acc-badge acc-high">82% Accuracy</span> 
+        <span class="ideology-tag ideo-hawk">Hawkish</span>
+      </div>
+      <blockquote>"Personally, I don't think the core IRGC surrounding Mojtaba Khamenei want to end the war now. They want to rebuild Iran's regime's deterrence."</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Danny Citrinowicz · Mar 2026 
+        <span class="acc-badge acc-high">84% Accuracy</span> 
+        <span class="ideology-tag ideo-regional">Israeli Intel Specialist</span>
+      </div>
+      <blockquote>"Iran is not going to capitulate, not in a million years."</blockquote>
+    </div>
+
+    <h3 class="arg-header">Argument 2 — Shadow Truces over Formal Treaties</h3>
+    <p><strong>Weight: Heavy</strong> | Supported by centrist and dovish analysts</p>
+    <p>While economic incentives for de-escalation exist, the diplomatic architecture required for a formal ceasefire is absent. The precedent of the Twelve-Day War (June 2025) showed these actors prefer unilateral, unannounced stand-downs. Because the resolution criteria explicitly reject backchannels or unilateral pauses, the structural mechanics of Middle Eastern de-escalation inherently favor a NO resolution.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Richard Haass (CFR) · Mar 27, 2026 
+        <span class="ideology-tag ideo-centrist">Centrist</span>
+      </div>
+      <blockquote>"The prospects for negotiating a formal peace ending this conflict must be judged as poor. The United States is fighting a conventional war against Iran's military, while Iran is waging an unconventional war against the global economy. For us, this is a limited war replete with options; for Iran, it is unlimited and existential."</blockquote>
+    </div>
+
+    <h3 class="arg-header">Argument 3 — The Intractable Hormuz Toll Mechanism</h3>
+    <p><strong>Weight: Medium</strong> | Supported by economic and energy analysts</p>
+    <p>The IRGC-managed maritime toll system — denominated exclusively in Chinese Yuan — represents a direct assault on the Petrodollar mechanism. The US cannot sign a ceasefire that tacitly accepts Iranian sovereignty over the strait and its right to tax international shipping in a rival currency. Iran views the toll as its only economic lifeline. This binary, zero-sum economic conflict cannot be resolved via a simple cessation of kinetic hostilities.</p>
+
+    <div class="prob-box">
+      <div class="pb-number pb-no">15%</div>
+      <div class="pb-text">
+        <strong>Weighted Consensus: Q1 resolves NO (~85% probability).</strong><br>
+        The structural impediments — regime succession optics, the preference for shadow truces, the intractable Hormuz toll, and the yawning gap between U.S. and Iranian demands — create an overwhelming headwind against a formal bilateral ceasefire by June 30. This conclusion is supported across the full ideological spectrum: realists, hawks, centrists, and Iran specialists converge.
+        <div class="consensus-meter">
+          <span>Cross-ideological consensus</span>
+          <div class="cm-bar"><div class="cm-fill high" style="width:92%"></div></div>
+          <span>Very High</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Q2 -->
+<div class="q-section">
+  <div class="container">
+    <div class="q-header">
+      <div class="q-number">Q2</div>
+      <div class="q-header-text">
+        <div class="q-market-title">Will US Military Personnel Physically Enter Iranian Territory by June 30, 2026?</div>
+        <div class="q-resolution">Includes Iranian-administered islands (Kharg, Qeshm, Abu Musa, Greater/Lesser Tunbs). Excludes intelligence operatives, contractors, and captured personnel.</div>
+      </div>
+    </div>
+
+    <h3 class="arg-header">Argument 1 — The Imperative of Island Interdiction</h3>
+    <p><strong>Weight: Heavy</strong> | Supported by military/tactical and energy analysts</p>
+    <p>The Pentagon is actively preparing for weeks of limited ground operations including raids on Kharg Island and coastal sites near the Strait of Hormuz (Washington Post, March 28). Marine Expeditionary Units and 82nd Airborne are deployed specifically for amphibious and island-seizure operations. The economic pressure from Hormuz closure creates an imperative: you cannot dismantle distributed coastal defense networks — the subterranean anti-ship missile batteries and radar arrays on Qeshm and Abu Musa — from 30,000 feet with absolute certainty.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Sidharth Kaushal (RUSI) · 2024–2026 
+        <span class="acc-badge acc-high">81% Accuracy</span> 
+        <span class="ideology-tag ideo-military">Military Analyst</span>
+      </div>
+      <blockquote>RUSI analysis demonstrated that uncrewed systems and distributed coastal defenses can deny maritime chokepoints at low cost — meaning airstrikes alone are unlikely to permanently reopen the Strait.</blockquote>
+    </div>
+
+    <h3 class="arg-header">Argument 2 — Risk Aversion and the Casualty Trap (Counter-Argument)</h3>
+    <p><strong>Weight: Moderate</strong> | Supported by realist, restraint, and Gulf analysts</p>
+    <p>Iran has been laying traps and moving additional military personnel and MANPADs to Kharg Island (CNN intelligence sources, March 25). A pinned-down SOF team would grant Tehran massive propaganda victory. Gulf allies are privately urging against ground operations, warning of high casualties and Iranian retaliation against Gulf infrastructure. Trump's pattern of threatening then retreating introduces genuine uncertainty.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Ret. Adm. James Stavridis (Former NATO SACEUR) · Mar 2026 
+        <span class="ideology-tag ideo-centrist">Centrist</span>
+      </div>
+      <blockquote>"I would be very worried about this."</blockquote>
+    </div>
+
+    <div class="prob-box">
+      <div class="pb-number pb-yes">68%</div>
+      <div class="pb-text">
+        <strong>Weighted Consensus: Q2 resolves YES (~68% probability).</strong><br>
+        The explicit inclusion of Iranian-administered islands in the resolution criteria significantly expands the trigger surface. The structural necessity of reopening Hormuz bridges the gap between doctrinal aversion to mainland invasion and the operational realities of neutralizing island-based chokepoints. The most likely scenario is a limited SOF raid or Marine amphibious operation on Kharg, Abu Musa, or Hormuz-area islands — not a march on Tehran.
+        <div class="consensus-meter">
+          <span>Cross-ideological consensus</span>
+          <div class="cm-bar"><div class="cm-fill mixed" style="width:58%"></div></div>
+          <span>Mixed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Q3 -->
+<div class="q-section">
+  <div class="container">
+    <div class="q-header">
+      <div class="q-number">Q3</div>
+      <div class="q-header-text">
+        <div class="q-market-title">Will Commercial Hormuz Transits Return to ≥50% of Pre-War Baseline by September 30, 2026?</div>
+        <div class="q-resolution">≥35 transits/day for any 7 consecutive days. Chinese-flagged vessels under special arrangement and military-escorted commercial vessels count.</div>
+      </div>
+    </div>
+
+    <p>This is the question where the two analytical panels diverge most sharply, producing the most interesting structural tension in the entire briefing.</p>
+
+    <h3 class="arg-header">Panel A: "Friendly Nations Corridor" Model — YES (~78%)</h3>
+    <p><strong>Weight: Heavy among economic and maritime analysts</strong></p>
+    <p>This argument holds that Iran has not hermetically sealed the strait but established a tolling mechanism. By permitting passage to China, India, Russia, Iraq, and Pakistan, Iran maintains its economic lifeline. India's Operation Urja Suraksha — a full Indian Navy escort operation — guarantees a massive, steady flow of LNG and crude. Combined Chinese, Indian, and regional traffic could approach 17–18 transits/day, meeting the 50% threshold. The resolution criteria explicitly count Chinese-flagged vessels and military-escorted commercial ships.</p>
+
+    <table class="weight-table">
+      <tbody><tr><th>Shipping Bloc</th><th>Pre-War Share</th><th>Post-War Status</th><th>Estimated Daily Transits</th></tr>
+      <tr><td>Western / NATO-aligned</td><td>~40%</td><td>Total avoidance (Cape of Good Hope reroute)</td><td>0</td></tr>
+      <tr><td>China / East Asia</td><td>~35%</td><td>Active under Yuan toll agreements</td><td>10–12</td></tr>
+      <tr><td>India / South Asia</td><td>~15%</td><td>Active under Operation Urja Suraksha</td><td>5–7</td></tr>
+      <tr><td>Regional (Iraq, Pakistan, Oman)</td><td>~10%</td><td>Friendly Nations exemption</td><td>2–3</td></tr>
+      <tr style="font-weight:700"><td>Total Estimated</td><td>100%</td><td></td><td>17–22 (≈49–63%)</td></tr>
+    </tbody></table>
+
+    <h3 class="arg-header">Panel B: "Structural Closure" Model — YES only ~15–20%</h3>
+    <p><strong>Weight: Heavy among V24 high-accuracy experts</strong></p>
+    <p>This counter-model emphasizes that the IRGC-managed selective passages are not equivalent to commercial transit. Western insurance companies have withdrawn war-risk coverage. Mine clearance alone takes months. Iran's parliament speaker stated Hormuz "won't return to its pre-war status." Even IRGC-permitted passages involve individual ship negotiations and million-dollar fees — not the routine 35+/day commercial flow the baseline measures.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        John Mearsheimer · Mar 11, 2026 
+        <span class="acc-badge acc-high">77% Accuracy</span> 
+        <span class="ideology-tag ideo-realist">Realist</span>
+      </div>
+      <blockquote>"I don't think we can open the Straits of Hormuz. If that was easy, we would have done it earlier. The Navy basically told them that escorting tankers was not possible."</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Bob McNally (Rapidan Energy) · Mar 4, 2026 
+        <span class="acc-badge acc-high">75% Accuracy</span> 
+        <span class="ideology-tag ideo-energy">Energy Specialist</span>
+      </div>
+      <blockquote>"The market is overly optimistic about resumption of Strait of Hormuz. Restoring freedom of navigation is the only solution."</blockquote>
+    </div>
+
+    <div class="prob-box">
+      <div class="pb-number" style="color:#7aa3d0;">48%</div>
+      <div class="pb-text">
+        <strong>Synthesized Assessment: Q3 is a genuine toss-up (~48% YES).</strong><br>
+        The divergence between panels is structurally significant. If the "Friendly Nations Corridor" institutionalizes rapidly and AIS tracking systems count IRGC-permitted Chinese and Indian vessels, the 50% threshold becomes achievable. If Lloyd's List Intelligence applies strict commercial transit definitions excluding tolled military-escorted convoys in a war zone, it does not. The resolution hinges on <strong>measurement methodology</strong> as much as geopolitical reality. We split the difference at 48%.
+        <div class="consensus-meter">
+          <span>Cross-ideological consensus</span>
+          <div class="cm-bar"><div class="cm-fill mixed" style="width:35%"></div></div>
+          <span>Significant Divergence</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Q4 -->
+<div class="q-section">
+  <div class="container">
+    <div class="q-header">
+      <div class="q-number">Q4</div>
+      <div class="q-header-text">
+        <div class="q-market-title">Will Brent Crude Close Above $150/Barrel Before July 31, 2026?</div>
+        <div class="q-resolution">ICE Brent front-month futures contract. Single daily close at or above $150.00 USD. Brent closed at $118.35 on March 31. Intraday peak: $119.50 (March 9). All-time nominal Brent high: $147.50 (July 2008).</div>
+      </div>
+    </div>
+
+    <p>At $150, the analytical calculus changes fundamentally from the $120 threshold. Brent has never closed above $147.50 in nominal terms. The current price of $118.35 requires a further <strong>27% rally</strong> — a move that demands not just continued disruption but a <em>new escalatory shock</em> beyond what markets have already priced in. This is no longer a question of volatility around an existing level; it requires Brent to breach its all-time record.</p>
+
+    <h3 class="arg-header">Argument 1 — "Structural Inevitability if Hormuz Stays Closed" (Bullish)</h3>
+    <p><strong>Weight: Heavy</strong> | Supported by energy specialists and institutional forecasters</p>
+    <p>The structural supply deficit is real and worsening: ~10 million barrels/day of production effectively offline, the 400M-barrel strategic reserve release proving insufficient, and OECD commercial stocks critically low. Multiple institutional forecasters have explicitly named $150 as a plausible near-term target. The critical variable is <em>duration</em>: if Hormuz remains closed through May–June, the physical supply crunch overwhelms any financial market adjustment. Dubai crude — the Asian physical benchmark — has already crossed $150, hitting $166. Brent's lag reflects the financial market's hope for resolution, not physical reality.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Wood Mackenzie · Mar 2026 
+        <span class="ideology-tag ideo-centrist">Institutional</span>
+      </div>
+      <blockquote>Brent could "soon hit $150" and $200 was "not outside the realms of possibility" in 2026.</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Societe Generale · Mar 2026 
+        <span class="ideology-tag ideo-centrist">Institutional</span>
+      </div>
+      <blockquote>Prolonged supply disruption in the Middle East could push prices as high as $150 per barrel in April.</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Qatari Energy Minister Saad al-Kaabi · Mar 9, 2026 
+        <span class="ideology-tag ideo-regional">Gulf Official</span>
+      </div>
+      <blockquote>Warned that all of the region's producers could soon be forced to halt production and that prices could hit $150 a barrel.</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Bob McNally (Rapidan Energy) · Mar 2026 
+        <span class="acc-badge acc-high">75% Accuracy</span> 
+        <span class="ideology-tag ideo-energy">Energy Specialist</span>
+      </div>
+      <blockquote>"Nobody knows what that level [of demand destruction pricing] is, but it may well be above previous nominal highs at $147 a barrel." Warned oil could hit $200 if disruption persists through summer.</blockquote>
+    </div>
+
+    <h3 class="arg-header">Argument 2 — "Demand Destruction Caps Prices Below Record" (Bearish)</h3>
+    <p><strong>Weight: Moderate</strong> | Supported by centrist energy analysts and historical precedent</p>
+    <p>At $150, demand destruction effects become powerful. The IMF estimates every 10% rise in oil prices sustained over a year corresponds with 0.4% higher global inflation and 0.15% lower GDP growth. At $150 Brent, the global economy begins contracting, which itself suppresses demand and caps prices — the same self-correcting mechanism that ended the 2008 spike. Furthermore, non-Hormuz supply is ramping: the U.S., Canada, Argentina, Brazil, and Guyana are increasing output. Saudi Arabia's East-West Pipeline bypasses Hormuz for ~5M bpd. The market retains $31 of "hope premium" below $150 precisely because traders believe a ceasefire or partial reopening will intervene before physical scarcity forces the record breach.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Sasha Foss (Marex, London) · Mar 2026 
+        <span class="ideology-tag ideo-centrist">Energy Analyst</span>
+      </div>
+      <blockquote>Called the prospect of $200 Brent "pretty outlandish," pointing to substantial output increases from the US, Canada, Argentina, Brazil and Guyana, plus alternative supply routes like Saudi Arabia's East-West Pipeline.</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Adi Imsirovic (Oxford) · Mar 2026 
+        <span class="ideology-tag ideo-centrist">Energy Scholar</span>
+      </div>
+      <blockquote>Described $150+ as "perfectly possible" but warned it "would be a major handbrake to the world economy" — the mechanism that ultimately kills the rally.</blockquote>
+    </div>
+
+    <h3 class="arg-header">Argument 3 — "The Escalation Trigger" (Conditional Catalyst)</h3>
+    <p><strong>Weight: Heavy</strong> | Supported by military and geopolitical analysts</p>
+    <p>The critical insight is that $150 Brent requires a <strong>specific escalatory event</strong> beyond the current baseline of Hormuz closure. The most plausible triggers:</p>
+
+    <table class="weight-table">
+      <tbody><tr><th>Trigger Scenario</th><th>Probability (by July 31)</th><th>Oil Price Impact</th></tr>
+      <tr><td>Houthis close Bab el-Mandeb (dual chokepoint closure)</td><td>25–35%</td><td>$150+ virtually certain</td></tr>
+      <tr><td>US strikes on Iranian energy infrastructure (Kharg oil facilities)</td><td>30–40%</td><td>$140–$180 spike</td></tr>
+      <tr><td>Iran strikes Saudi Aramco processing (Abqaiq/Ras Tanura)</td><td>20–30%</td><td>$150+ virtually certain</td></tr>
+      <tr><td>Hormuz remains fully closed through June</td><td>40–55%</td><td>Gradual rise to $140–$160</td></tr>
+      <tr><td>Rapid ceasefire + partial Hormuz reopening</td><td>15–25%</td><td>Collapse to $80–$100</td></tr>
+    </tbody></table>
+
+    <p>The Houthi dimension is the sleeper risk. Houthis launched their first direct strikes at Israel on March 29. IRGC officials suggested in late March that Iran may push Houthis to block Bab el-Mandeb, which would simultaneously shut down the Red Sea shipping corridor. A dual chokepoint closure would be unprecedented and would force $150+ instantly. Eurasia Group assigns 55% odds the war lasts through May; if it does, the probability of at least one trigger event is high.</p>
+
+    <div class="prob-box">
+      <div class="pb-number" style="color:var(--gold);">52%</div>
+      <div class="pb-text">
+        <strong>Weighted Consensus: Q4 resolves YES with ~52% probability — a genuine coin flip with asymmetric tails.</strong><br>
+        Unlike the $120 threshold (which was near-certain), $150 requires Brent to breach its all-time nominal record. This depends on a <strong>conditional catalyst</strong>: either sustained Hormuz closure through June, a second chokepoint closure, or direct energy infrastructure strikes. Any one of these events has individual probability of 25–55%, and the <em>union</em> of all catalysts occurring by July 31 is approximately 52%. The bearish tail (rapid ceasefire) and the bullish tail (dual chokepoint closure → $200) are roughly balanced. Dubai crude has already crossed $150 — Brent is lagging behind the physical reality.
+        <div class="consensus-meter">
+          <span>Cross-ideological consensus</span>
+          <div class="cm-bar"><div class="cm-fill" style="width:52%;background:var(--gold);"></div></div>
+          <span>Split / Conditional</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Q5 -->
+<div class="q-section">
+  <div class="container">
+    <div class="q-header">
+      <div class="q-number">Q5</div>
+      <div class="q-header-text">
+        <div class="q-market-title">Will the Islamic Republic's Constitutional System Still Be Functioning on December 31, 2026?</div>
+        <div class="q-resolution">Requires Supreme Leader exercising authority + Guardian Council functioning + presidency occupied. Mojtaba replacing Ali Khamenei does not trigger NO.</div>
+      </div>
+    </div>
+
+    <h3 class="arg-header">Argument 1 — Constitutional Redundancy and IRGC Institutional Depth</h3>
+    <p><strong>Weight: Very Heavy</strong> | Supported by highest-accuracy experts across all ideologies</p>
+    <p>The Islamic Republic's architecture is specifically designed to withstand leadership decapitation. The Assembly of Experts rapidly convened and elevated Mojtaba Khamenei, ensuring constitutional continuity. The IRGC functions as the regime's institutional backbone and has actually <em>consolidated</em> power through the crisis. U.S. intelligence itself assesses the regime is "not at risk of collapse." Historical precedent (Iran-Iraq War, 1980–88) demonstrates the regime can endure prolonged warfare.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Ray Takeyh (CFR) · Mar 2026 
+        <span class="acc-badge acc-high">88% Accuracy</span> 
+        <span class="ideology-tag ideo-hawk">Hawkish</span>
+      </div>
+      <blockquote>"Iran's Regime Rattled but Resilient — So Far." Assessed the regime was severely weakened but institutional structures remained intact.</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Danny Citrinowicz · Mar 27, 2026 
+        <span class="acc-badge acc-high">84% Accuracy</span> 
+        <span class="ideology-tag ideo-regional">Israeli Intel Specialist</span>
+      </div>
+      <blockquote>"Rather than bringing down the regime, the campaign is, in several key respects, actually reinforcing it."</blockquote>
+    </div>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Narges Bajoghli (JHU SAIS) · Feb 2026 
+        <span class="acc-badge acc-high">83% Accuracy</span> 
+        <span class="ideology-tag ideo-regional">Iran Scholar</span>
+      </div>
+      <blockquote>"The Islamic Republic's government has reestablished control... shows no signs of immediate collapse."</blockquote>
+    </div>
+
+    <h3 class="arg-header">Argument 2 — Economic Fortification via Maritime Extortion</h3>
+    <p><strong>Weight: Heavy</strong> | Supported by economic and energy analysts</p>
+    <p>A state collapses when it can no longer fund its security forces. By asserting control over the Strait of Hormuz and collecting tolls in Chinese Yuan, Tehran has secured a sanction-proof revenue stream of billions annually. This capital flows directly to the IRGC, ensuring the paramilitary forces remain well-compensated and loyal to the new Supreme Leader.</p>
+
+    <h3 class="arg-header">Argument 3 — The Absence of a Viable Alternative</h3>
+    <p><strong>Weight: Heavy</strong> | Supported across full ideological spectrum</p>
+    <p>To trigger a NO resolution, an alternative government must be recognized by ≥20 UN member states. Despite massive protests and 32,000 casualties, there is no unified government-in-exile capable of securing such recognition. Russia and China will veto any UN attempts to delegitimize the current regime. The Iranian diaspora remains deeply fragmented.</p>
+
+    <div class="expert-quote">
+      <div class="eq-attr">
+        Richard Haass (CFR) · Mar 30, 2026 
+        <span class="ideology-tag ideo-centrist">Centrist</span>
+      </div>
+      <blockquote>"Short of the emergence of a democratic Iran that wishes to be integrated into the region and the world, that will not happen. Regime change is not something that can be engineered from the outside or expected from within."</blockquote>
+    </div>
+
+    <p><strong>Counter-argument (Michael Rubin, 54% accuracy):</strong> Predicted "last days of the Islamic Republic." Rated MOSTLY FALSE by the V24 tracker. This position is held only by the lowest-accuracy analysts and is ideologically concentrated among those with institutional incentives to predict collapse.</p>
+
+    <div class="prob-box">
+      <div class="pb-number pb-yes">92%</div>
+      <div class="pb-text">
+        <strong>Weighted Consensus: Q5 resolves YES (~92% probability).</strong><br>
+        This is the single highest-confidence assessment and the strongest cross-ideological consensus in the entire briefing. Hawkish analysts disposed toward regime change (Takeyh at 88%, Citrinowicz at 84%) agree with realists, centrists, and Iran scholars that the constitutional system survives. The average accuracy of supporting experts is <strong>83.7%</strong> — the highest of any argument across all five questions.
+        <div class="consensus-meter">
+          <span>Cross-ideological consensus</span>
+          <div class="cm-bar"><div class="cm-fill extreme" style="width:98%"></div></div>
+          <span>Extreme</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CAUSAL CHAIN -->
+<div class="chain-section">
+  <div class="container">
+    <h2>Structural Interdependencies</h2>
+    <p class="chain-intro">The five questions are not independent. They form a causal chain where each outcome drives the next — a self-reinforcing loop of escalation, economic pain, and regime consolidation.</p>
+
+    <div class="chain-flow">
+      <div class="chain-node">
+        <div class="chain-pipe"><div class="chain-dot"></div><div class="chain-line"></div></div>
+        <div class="chain-content">
+          <div class="chain-label">Q1 → Q2: No Ceasefire Forces Ground Escalation</div>
+          <p>Because Mojtaba's regime <strong>cannot</strong> publicly accept a ceasefire (15% YES), the Hormuz blockade remains unresolved through negotiation. The Pentagon is structurally forced to escalate from standoff munitions to <strong>localized terrestrial operations</strong> (68% YES) to physically dismantle the anti-ship infrastructure on Iranian-administered islands.</p>
+        </div>
+      </div>
+      <div class="chain-node">
+        <div class="chain-pipe"><div class="chain-dot"></div><div class="chain-line"></div></div>
+        <div class="chain-content">
+          <div class="chain-label">Q2 → Q3: Island Raids Cannot Fully Reopen the Strait</div>
+          <p>Even localized island seizures cannot clear mines, restore insurance markets, or rebuild damaged infrastructure within months. Iran's <strong>"Friendly Nations" corridor</strong> becomes the new institutional norm, with the 50% threshold becoming a measurement question rather than a geopolitical certainty (48% YES).</p>
+        </div>
+      </div>
+      <div class="chain-node">
+        <div class="chain-pipe"><div class="chain-dot"></div><div class="chain-line"></div></div>
+        <div class="chain-content">
+          <div class="chain-label">Q3 → Q4: Bifurcated Shipping Creates Conditions for Record Oil</div>
+          <p>While Asian traffic flows through the Yuan corridor, the <strong>Western half of global energy supply is starved</strong>. Pre-existing 1.3M bpd deficits, Russian export bans, and the geopolitical risk premium create conditions where a single escalatory catalyst — Houthi closure of Bab el-Mandeb, a Kharg Island strike, or Iranian attacks on Saudi Aramco — would push Brent past its all-time nominal record of $147.50 to breach $150 (52% YES). Dubai crude has already crossed this threshold; Brent lags behind the physical reality.</p>
+        </div>
+      </div>
+      <div class="chain-node">
+        <div class="chain-pipe"><div class="chain-dot"></div><div class="chain-line"></div></div>
+        <div class="chain-content">
+          <div class="chain-label">Q4 → Q5: High Oil Revenue Ensures Regime Survival</div>
+          <p>Whether Brent breaches $150 or stabilizes in the $100–$130 range, the Yuan-denominated toll system generates <strong>billions in non-sanctionable revenue</strong> for the IRGC's internal security apparatus. Even at current prices well above $100, the regime's wartime economy is funded. The constitutional structure is heavily insulated from collapse (92% YES), completing the causal loop.</p>
+        </div>
+      </div>
+      <div class="chain-node">
+        <div class="chain-pipe"><div class="chain-dot"></div></div>
+        <div class="chain-content">
+          <div class="chain-label">The Core Insight</div>
+          <p><strong>Iran's strategy of economic attrition through Hormuz closure is working as designed.</strong> The regime, despite massive military damage, is structurally better positioned to sustain a war of wills than a domestically-divided United States facing $100+ oil and the threat of $150+ record prices. This single causal chain, supported by experts spanning the full ideological spectrum and averaging 80%+ accuracy, is the most robust finding of the analysis.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL ROSTER -->
+<div class="q-section" style="background: var(--cream);">
+  <div class="container">
+    <h3 style="margin-top:0;">V24 Expert Panel — Top Accuracy Contributors to This Analysis</h3>
+    <table class="weight-table">
+      <tbody><tr><th>Expert</th><th>Accuracy</th><th>Ideology</th><th>Key Contribution</th></tr>
+      <tr><td>Dmitriy Shapiro</td><td>95%</td><td><span class="ideology-tag ideo-hawk">Hawkish</span></td><td>Russia-Iran cooperation dynamics, oil windfalls</td></tr>
+      <tr><td>Fawaz Gerges</td><td>93%</td><td><span class="ideology-tag ideo-centrist">Centrist</span></td><td>Regime resilience through repression</td></tr>
+      <tr><td>Ahmad Naghibzadeh</td><td>90%</td><td><span class="ideology-tag ideo-regional">Regional</span></td><td>Iranian leadership dynamics, nuclear risk</td></tr>
+      <tr><td>Jiang Xueqin</td><td>88%</td><td><span class="ideology-tag ideo-china">Chinese Perspective</span></td><td>Predicted US-Iran war; Iran's geographic advantage</td></tr>
+      <tr><td>Ray Takeyh</td><td>88%</td><td><span class="ideology-tag ideo-hawk">Hawkish</span></td><td>"Rattled but Resilient" — regime survival despite damage</td></tr>
+      <tr><td>Abdulkhaleq Abdulla</td><td>88%</td><td><span class="ideology-tag ideo-regional">Gulf Specialist</span></td><td>Gulf state vulnerability, regional impact</td></tr>
+      <tr><td>Barry Posen</td><td>86%</td><td><span class="ideology-tag ideo-realist">Realist</span></td><td>Escalation theory, ground force limitations</td></tr>
+      <tr><td>Danny Citrinowicz</td><td>84%</td><td><span class="ideology-tag ideo-regional">Israeli Intel</span></td><td>IRGC consolidation; regime reinforcement paradox</td></tr>
+      <tr><td>Narges Bajoghli</td><td>83%</td><td><span class="ideology-tag ideo-regional">Iran Scholar</span></td><td>Regime institutional depth; protest dynamics</td></tr>
+      <tr><td>Jason Brodsky</td><td>82%</td><td><span class="ideology-tag ideo-hawk">Hawkish</span></td><td>IRGC war aims; deterrence reconstruction</td></tr>
+      <tr><td>Sidharth Kaushal</td><td>81%</td><td><span class="ideology-tag ideo-military">Military Analyst</span></td><td>Naval warfare transformation; Hormuz denial</td></tr>
+      <tr><td>David Albright</td><td>79%</td><td><span class="ideology-tag ideo-hawk">Hawkish</span></td><td>Nuclear breakout timelines; residual capability</td></tr>
+      <tr><td>John Mearsheimer</td><td>77%</td><td><span class="ideology-tag ideo-realist">Realist</span></td><td>"No off-ramp"; war of attrition dynamics</td></tr>
+      <tr><td>Bob McNally</td><td>75%</td><td><span class="ideology-tag ideo-energy">Energy Specialist</span></td><td>Oil price mechanics; Hormuz reopening timeline</td></tr>
+      <tr><td>Vali Nasr</td><td>75%</td><td><span class="ideology-tag ideo-dove">Dovish</span></td><td>"Iran plays the long game"; nationalist rally effect</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="report-footer">
+  <div class="container">
+    Expert Prediction Tracker V24 — Structural Forecast Briefing<br>
+    Published by <a href="https://t.me/unmitigated_wisdom" style="color:var(--gold);text-decoration:none;">Unmitigated Wisdom</a> · <a href="https://t.me/unmitigated_wisdom" style="color:var(--warm-gray);text-decoration:none;">t.me/unmitigated_wisdom</a><br>
+    Methodology: Dual-panel synthesis of 64-expert accuracy-weighted roster + structural causal analysis<br>
+    Data Sources: V24 Tracker · Reuters · AP · CNBC · Bloomberg · Lloyd's List · ICE · CRS · ACLED · Wikipedia<br>
+    Assessment Date: April 1, 2026 · Conflict Day 32
+  </div>
+</div>
+
+
+
+</body></html>

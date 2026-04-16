@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            window.parent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            window.parent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            window.parent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        let requestId = 0;
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = requestId++;
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream
+                resolve(new Response(stream, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                }));
+              },
+              reject,
+              channelId
+            });
+            
+            window.parent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          if (event.data.type === 'takeScreenshot') {
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              window.parent.postMessage({
+                type: 'screenshotError',
+                error: new Error('Root element not found'),
+              }, '*');
+            }
+            const screenshot = await htmlToImage.toPng(rootElement, {
+              imagePlaceholder:
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+            });
+            window.parent.postMessage({
+              type: 'screenshotData',
+              data: screenshot,
+            }, '*');
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              window.parent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            window.parent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            window.parent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          window.parent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          window.parent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operation Epic Fury — Day 13 Assessment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&amp;family=DM+Sans:wght@300;400;500&amp;display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #faf9f7; --surface: #ffffff; --border: #e8e4de;
+  --text: #1a1a1a; --muted: #888880;
+  --red: #c0392b; --amber: #c47a1e; --green: #2a7a4a; --yellow: #a08010;
+  --light-red: #fdf2f1; --light-amber: #fdf5ec; --light-green: #f0f7f3;
+}
+body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; font-size:15px; line-height:1.7; }
+
+/* ── HEADER ── */
+header { background:var(--surface); border-bottom:3px solid var(--red); padding:56px 80px 48px; }
+.report-eyebrow { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--red); margin-bottom:18px; font-weight:500; }
+h1 { font-family:'Playfair Display',serif; font-size:clamp(38px,5vw,64px); font-weight:700; line-height:1.05; letter-spacing:-.01em; }
+h1 em { font-style:italic; color:var(--red); }
+.header-sub { font-size:13px; color:var(--muted); margin-top:14px; letter-spacing:.04em; }
+
+.kpi-strip { display:flex; gap:0; margin-top:36px; border-top:1px solid var(--border); flex-wrap:wrap; }
+.kpi { padding:20px 32px 20px 0; margin-right:32px; border-right:1px solid var(--border); }
+.kpi:last-child { border-right:none; margin-right:0; }
+.kpi-val { font-family:'Playfair Display',serif; font-size:32px; font-weight:700; line-height:1; }
+.kpi-val.red { color:var(--red); } .kpi-val.amber { color:var(--amber); } .kpi-val.green { color:var(--green); }
+.kpi-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-top:5px; font-weight:500; }
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  background:var(--red); color:#fff; padding:18px 80px;
+  font-size:13px; font-weight:500; letter-spacing:.04em; line-height:1.6;
+}
+.alert-banner strong { font-weight:700; }
+
+/* ── SECTIONS ── */
+.page-section { padding:72px 80px; border-bottom:1px solid var(--border); background:var(--surface); }
+.page-section:nth-child(even) { background:var(--bg); }
+.section-label { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; font-weight:500; }
+h2 { font-family:'Playfair Display',serif; font-size:clamp(26px,3vw,38px); font-weight:600; line-height:1.15; margin-bottom:36px; }
+.lead { font-size:16px; color:#555550; max-width:680px; margin-bottom:40px; line-height:1.75; }
+
+/* ── SCENARIOS ── */
+.scenarios { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); margin-bottom:32px; }
+.sc-card { background:var(--surface); padding:28px 24px; }
+.sc-tag { font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:500; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid; display:block; }
+.sc-card.quagmire .sc-tag { color:var(--amber); border-color:var(--amber); }
+.sc-card.catastrophe .sc-tag { color:var(--red); border-color:var(--red); }
+.sc-card.offramp .sc-tag { color:var(--yellow); border-color:var(--yellow); }
+.sc-card.quickwin .sc-tag { color:var(--muted); border-color:var(--muted); }
+.sc-pct { font-family:'Playfair Display',serif; font-size:52px; font-weight:700; line-height:1; margin:8px 0; }
+.sc-card.quagmire .sc-pct { color:var(--amber); }
+.sc-card.catastrophe .sc-pct { color:var(--red); }
+.sc-card.offramp .sc-pct { color:var(--yellow); }
+.sc-card.quickwin .sc-pct { color:var(--muted); }
+.sc-parity { display:inline-block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; font-weight:600; padding:2px 8px; border-radius:2px; margin-bottom:4px; }
+.parity-red { background:var(--light-red); color:var(--red); }
+.sc-trend { font-size:11px; color:var(--muted); margin-top:4px; }
+.sc-driver { font-size:12px; color:var(--muted); margin-top:14px; line-height:1.55; border-top:1px solid var(--border); padding-top:12px; }
+.progress-bar { height:2px; background:var(--border); margin-top:16px; border-radius:1px; }
+.progress-fill { height:100%; border-radius:1px; }
+.callout { border-left:3px solid var(--red); padding:18px 24px; background:var(--light-red); font-size:14px; line-height:1.7; color:#555; }
+.callout strong { color:var(--text); font-weight:500; }
+.callout-amber { border-left:3px solid var(--amber); padding:18px 24px; background:var(--light-amber); font-size:14px; line-height:1.7; color:#555; }
+.callout-amber strong { color:var(--text); font-weight:500; }
+
+/* ── KEY DEVELOPMENTS ── */
+.dev-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:32px; }
+.dev-card { border:1px solid var(--border); padding:28px; background:var(--surface); }
+.dev-card.critical { border-color:var(--red); border-width:2px; }
+.dev-num { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; margin-bottom:8px; }
+.dev-title { font-family:'Playfair Display',serif; font-size:18px; font-weight:600; margin-bottom:10px; line-height:1.2; }
+.dev-title.red-title { color:var(--red); }
+.status-pill { display:inline-block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; font-weight:500; padding:3px 8px; border-radius:2px; margin-bottom:12px; }
+.pill-amber { background:var(--light-amber); color:var(--amber); }
+.pill-red { background:var(--light-red); color:var(--red); }
+.pill-green { background:var(--light-green); color:var(--green); }
+.dev-body { font-size:13px; color:#555; line-height:1.7; }
+.dev-body ul { padding-left:18px; margin-top:10px; }
+.dev-body li { margin-bottom:6px; }
+
+/* ── TIMELINE TABLE ── */
+.timeline-tbl { width:100%; border-collapse:collapse; margin-top:24px; font-size:13px; }
+.timeline-tbl th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; text-align:left; padding:10px 14px; border-bottom:2px solid var(--text); }
+.timeline-tbl td { padding:12px 14px; border-bottom:1px solid var(--border); color:#444; vertical-align:top; }
+.timeline-tbl tr:last-child td { border-bottom:none; }
+.time-cell { font-family:'Playfair Display',serif; font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; }
+
+/* ── FOUR CLOCKS ── */
+.clocks { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); margin-bottom:32px; }
+.clock { background:var(--surface); padding:28px 22px; }
+.clock.new-clock { background:#fffbf5; }
+.clock-num { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; margin-bottom:10px; }
+.clock-title { font-family:'Playfair Display',serif; font-size:17px; font-weight:600; margin-bottom:8px; line-height:1.2; }
+.clock-body { font-size:13px; color:#666; line-height:1.65; }
+.clock-stats { margin-top:18px; padding-top:16px; border-top:1px solid var(--border); display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.cs-val { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; line-height:1; }
+.cs-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-top:4px; }
+
+/* ── OIL TABLE ── */
+.oil-ladder { display:grid; grid-template-columns:repeat(6,1fr); gap:1px; background:var(--border); border:1px solid var(--border); margin:32px 0; }
+.oil-step { background:var(--surface); padding:20px 14px; }
+.oil-step.dashed { background:var(--bg); }
+.oil-step.highlight { background:#fff8f5; border-top:2px solid var(--red); }
+.oil-price { font-family:'Playfair Display',serif; font-size:26px; font-weight:700; line-height:1; }
+.oil-price.warn { color:var(--amber); } .oil-price.danger { color:var(--red); } .oil-price.ghost { color:var(--muted); } .oil-price.ease { color:var(--yellow); }
+.oil-day { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-top:6px; font-weight:500; }
+.oil-note { font-size:11px; color:#888; margin-top:6px; line-height:1.45; }
+
+/* ── POLITICAL CLOCK TABLE ── */
+.pol-table { width:100%; border-collapse:collapse; font-size:13px; }
+.pol-table th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; text-align:left; padding:10px 14px; border-bottom:2px solid var(--text); }
+.pol-table td { padding:12px 14px; border-bottom:1px solid var(--border); color:#444; vertical-align:middle; }
+.pol-table tr:last-child td { border-bottom:none; }
+.pol-val { font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:var(--red); }
+.dot-red { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); margin-right:5px; }
+.dot-amber { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--amber); margin-right:5px; }
+
+/* ── EXPERT QUOTES ── */
+.tl-wrap { position:relative; }
+.tl-line { position:absolute; left:148px; top:8px; bottom:8px; width:1px; background:var(--border); }
+.tl-entry { display:grid; grid-template-columns:140px 48px 1fr; margin-bottom:24px; align-items:start; }
+.tl-who { padding-right:16px; padding-top:2px; text-align:right; }
+.tl-name { font-family:'Playfair Display',serif; font-size:14px; font-weight:600; color:var(--text); line-height:1.2; }
+.tl-weight-label { font-size:10px; color:var(--amber); margin-top:3px; }
+.tl-date-label { font-size:10px; color:var(--muted); margin-top:2px; }
+.tl-node { display:flex; justify-content:center; padding-top:6px; }
+.tl-dot { width:10px; height:10px; border-radius:50%; border:2px solid; flex-shrink:0; z-index:1; }
+.tl-dot.green { border-color:var(--green); background:var(--light-green); }
+.tl-dot.amber { border-color:var(--amber); background:var(--light-amber); }
+.tl-dot.red { border-color:var(--red); background:var(--light-red); }
+.tl-quote-block { padding:16px 20px; border-left:3px solid; font-size:14px; line-height:1.7; color:#444; font-style:italic; margin-left:16px; }
+.tl-quote-block.green { border-color:var(--green); background:var(--light-green); }
+.tl-quote-block.amber { border-color:var(--amber); background:var(--light-amber); }
+.tl-quote-block.red { border-color:var(--red); background:var(--light-red); }
+.tl-source-line { font-size:11px; font-style:normal; color:var(--muted); margin-top:8px; }
+.tl-verdict-tag { display:inline-block; font-size:10px; font-style:normal; letter-spacing:.08em; text-transform:uppercase; font-weight:500; margin-top:8px; padding:2px 8px; border-radius:2px; }
+.verdict-green { background:rgba(42,122,74,.12); color:var(--green); }
+.verdict-amber { background:rgba(196,122,30,.12); color:var(--amber); }
+.verdict-red { background:rgba(192,57,43,.12); color:var(--red); }
+
+/* ── INTERCEPTORS TABLE ── */
+.interceptor-table { width:100%; border-collapse:collapse; font-size:13px; }
+.interceptor-table th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; text-align:left; padding:10px 14px; border-bottom:2px solid var(--text); }
+.interceptor-table td { padding:12px 14px; border-bottom:1px solid var(--border); color:#444; vertical-align:middle; }
+.interceptor-table tr:last-child td { border-bottom:none; }
+
+/* ── UNCERTAINTIES ── */
+.unc-table { width:100%; border-collapse:collapse; font-size:13px; }
+.unc-table th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; text-align:left; padding:10px 14px; border-bottom:2px solid var(--text); white-space:nowrap; }
+.unc-table td { padding:12px 14px; border-bottom:1px solid var(--border); color:#444; vertical-align:top; line-height:1.6; }
+.unc-table tr:hover td { background:#f9f8f6; }
+.unc-rank { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--muted); }
+.unc-title { font-weight:500; color:var(--text); font-size:13px; }
+
+/* ── MARKETS ── */
+.market-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); }
+.market-card { background:var(--surface); padding:20px 18px; }
+.market-name { font-size:13px; line-height:1.45; color:var(--text); margin-bottom:14px; }
+.market-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.market-row-label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+.market-price { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; }
+.market-poly-price { font-size:14px; color:var(--muted); font-family:'Playfair Display',serif; font-weight:600; text-decoration:line-through; }
+.edge-tag { display:inline-block; font-size:10px; letter-spacing:.1em; font-weight:500; padding:2px 8px; border-radius:2px; margin-top:10px; }
+.edge-long { background:var(--light-green); color:var(--green); }
+.edge-short { background:var(--light-red); color:var(--red); }
+.edge-skip { background:#f0f0f0; color:var(--muted); }
+.conviction-line { font-size:11px; color:var(--muted); margin-top:6px; line-height:1.4; }
+.priority-tag { display:inline-block; font-size:9px; letter-spacing:.1em; text-transform:uppercase; font-weight:600; padding:2px 6px; border-radius:2px; margin-top:6px; background:var(--red); color:#fff; }
+
+/* ── CONCLUSIONS ── */
+.conclusion-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-top:32px; }
+.conc-card { border:1px solid var(--border); padding:28px; background:var(--surface); }
+.conc-card.highlight { border-color:var(--red); border-width:2px; background:var(--light-red); }
+.conc-num { font-family:'Playfair Display',serif; font-size:40px; font-weight:700; color:var(--border); line-height:1; margin-bottom:14px; }
+.conc-card.highlight .conc-num { color:rgba(192,57,43,.2); }
+.conc-title { font-family:'Playfair Display',serif; font-size:18px; font-weight:600; margin-bottom:12px; line-height:1.2; }
+.conc-card.highlight .conc-title { color:var(--red); }
+.conc-body { font-size:13px; color:#555; line-height:1.7; }
+
+/* ── INDICATORS ── */
+.indicator-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:24px; }
+.ind-card { border:1px solid var(--border); padding:20px; background:var(--surface); display:grid; grid-template-columns:1fr auto; gap:12px; align-items:start; }
+.ind-name { font-family:'Playfair Display',serif; font-size:15px; font-weight:600; margin-bottom:4px; }
+.ind-current { font-size:12px; color:var(--muted); }
+.ind-threshold { font-size:12px; color:#555; line-height:1.55; margin-top:8px; }
+.ind-pill { font-size:10px; letter-spacing:.1em; text-transform:uppercase; font-weight:500; padding:3px 8px; border-radius:2px; white-space:nowrap; align-self:start; }
+
+/* ── MISC TABLE ── */
+.misc-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:24px; }
+.misc-table th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; text-align:left; padding:10px 14px; border-bottom:2px solid var(--text); }
+.misc-table td { padding:12px 14px; border-bottom:1px solid var(--border); color:#444; vertical-align:top; line-height:1.6; }
+.misc-table tr:last-child td { border-bottom:none; }
+.misc-table tr:hover td { background:#f9f8f6; }
+
+footer { background:var(--text); color:#888; padding:36px 80px; font-size:11px; line-height:1.9; letter-spacing:.04em; }
+footer strong { color:#bbb; font-weight:500; }
+
+.fade { opacity:0; transform:translateY(14px); transition:opacity .5s ease,transform .5s ease; }
+.fade.in { opacity:1; transform:none; }
+
+@media(max-width:1100px) {
+  .clocks { grid-template-columns:repeat(2,1fr); }
+  .scenarios { grid-template-columns:repeat(2,1fr); }
+  .market-grid { grid-template-columns:repeat(2,1fr); }
+  .oil-ladder { grid-template-columns:repeat(3,1fr); }
+  .dev-grid { grid-template-columns:1fr; }
+  .conclusion-grid { grid-template-columns:1fr 1fr; }
+}
+@media(max-width:768px) {
+  header,.page-section,.alert-banner,footer { padding-left:24px; padding-right:24px; }
+  .clocks,.scenarios,.market-grid,.indicator-grid,.conclusion-grid { grid-template-columns:1fr; }
+  .oil-ladder { grid-template-columns:repeat(2,1fr); }
+  .tl-line { left:100px; }
+  .tl-entry { grid-template-columns:92px 32px 1fr; }
+  .kpi-strip { flex-wrap:wrap; }
+  .kpi { padding:14px 20px 14px 0; }
+}
+</style>
+</head>
+<body id="artifacts-component-root-html">
+
+<!-- ALERT BANNER -->
+<div class="alert-banner">
+  <strong>⚠ CRITICAL THRESHOLD CROSSED:</strong> For the first time in 13 days, Catastrophe has reached parity with Quagmire as the modal scenario. Combined probability of the two worst outcomes now exceeds 80%. Mines confirmed in Strait of Hormuz.
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="report-eyebrow">Strategic Intelligence &amp; Bayesian Assessment Consortium · Day 13 · March 12, 2026</div>
+  <h1>Operation <em>Epic Fury</em><br>Intelligence Assessment</h1>
+  <div class="header-sub">15-Expert Panel · 23-Expert Military Assessment · Polymarket Mispricing Analysis · Four-Clock Attrition Framework · Supersedes all prior daily updates</div>
+  <div class="kpi-strip">
+    <div class="kpi"><div class="kpi-val">13</div><div class="kpi-label">Days of War</div></div>
+    <div class="kpi"><div class="kpi-val amber">$92–101</div><div class="kpi-label">Brent Crude (volatile)</div></div>
+    <div class="kpi"><div class="kpi-val">8</div><div class="kpi-label">US KIA</div></div>
+    <div class="kpi"><div class="kpi-val red">1,400+</div><div class="kpi-label">Iran KIA (civilians)</div></div>
+    <div class="kpi"><div class="kpi-val">14+</div><div class="kpi-label">Countries Struck</div></div>
+    <div class="kpi"><div class="kpi-val red">MINES</div><div class="kpi-label">Hormuz New Threat</div></div>
+    <div class="kpi"><div class="kpi-val amber">19</div><div class="kpi-label">Days to Trump-Xi Summit</div></div>
+  </div>
+</header>
+
+<!-- SECTION 1: SCENARIOS -->
+<section class="page-section fade in">
+  <div class="section-label">Section 01 — Bayesian Scenario Probabilities</div>
+  <h2>War Outcome Scenarios — Day 13 Update</h2>
+  <div class="scenarios">
+    <div class="sc-card quagmire">
+      <span class="sc-tag">Quagmire / Attrition</span>
+      <div class="sc-pct">38–42%</div>
+      <div class="sc-trend">Declining · Was 44% on Day 10</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:40%;background:var(--amber)"></div></div>
+      <div class="sc-driver">IRGC cohesion holds; drone-primary shift preserves fighting capacity; Mojtaba confirmed; Wave 37 launched under active bombing</div>
+    </div>
+    <div class="sc-card catastrophe">
+      <span class="sc-tag">Catastrophe / Escalation</span>
+      <div class="sc-pct">38–42%</div>
+      <div class="sc-parity parity-red">⚡ First Parity</div>
+      <div class="sc-trend">Rising fast · Was 16.6% on Day 1</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:40%;background:var(--red)"></div></div>
+      <div class="sc-driver">MINES in Hormuz; IEA release markets-unimpressed; Wright hoax; Khoramshahr-4 Wave 37; physics-based blockade</div>
+    </div>
+    <div class="sc-card offramp">
+      <span class="sc-tag">Stalemate / Off-Ramp</span>
+      <div class="sc-pct">13–17%</div>
+      <div class="sc-trend">Ticking up slightly · Was 11% on Day 10</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:15%;background:var(--yellow)"></div></div>
+      <div class="sc-driver">US asks Israel to halt energy strikes; China/Russia/France contacts Tehran; Witkoff Israel visit planned; Venezuela model signal</div>
+    </div>
+    <div class="sc-card quickwin">
+      <span class="sc-tag">Quick Win / Regime Change</span>
+      <div class="sc-pct">2–4%</div>
+      <div class="sc-trend">Effectively eliminated</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:3%;background:var(--muted)"></div></div>
+      <div class="sc-driver">Araghchi rejects all talks; Wave 37 launched under active bombing; NIC report on uprising probability</div>
+    </div>
+  </div>
+  <div class="callout">
+    <strong>Modal scenario has changed for the first time in 13 days.</strong> Catastrophe has reached parity with Quagmire. The five drivers: mines in Hormuz (physics-based blockade), IEA 400M barrel release that failed to move markets lower, cabinet-level information disorder (Wright hoax), Ghalibaf explicitly breaking the 12-Day War cycle, and Wave 37 Khoramshahr-4 deployment signaling strategic adaptation, not desperation.
+  </div>
+</section>
+
+<!-- SECTION 2: KEY DEVELOPMENTS -->
+<section class="page-section fade">
+  <div class="section-label">Section 02 — Day 12–13 Key New Developments</div>
+  <h2>Game-Changing Escalations</h2>
+  <div class="dev-grid">
+
+    <div class="dev-card critical">
+      <div class="dev-num">Development 2.1</div>
+      <div class="dev-title red-title">Mines in the Strait of Hormuz</div>
+      <span class="status-pill pill-red">Game-Changer</span>
+      <div class="dev-body">
+        CNN reported, citing US intelligence, that several dozen mines have been laid in or near the Strait of Hormuz, with Iranian forces capable of laying hundreds more. Trump demanded removal: any mines not removed "forthwith" would invite military consequences "at a level never seen before." CENTCOM confirmed destroying 16 inactive Iranian mine-laying vessels near the Strait.
+        <ul>
+          <li><strong>Physics-based blockade:</strong> A threat-based blockade resolves in 24–48 hrs post-ceasefire. A mined Strait requires active minesweeping — weeks to months in an active conflict zone.</li>
+          <li><strong>Iran mine inventory:</strong> 6,000+ naval mines of multiple types (limpet, moored, bottom). Even if laying stops now, deployment uncertainty creates indefinite navigation risk.</li>
+          <li><strong>Insurance prerequisite:</strong> Lloyd's and P&amp;I underwriters require official mine-free certification before reinstating Hormuz coverage. Neither currently exists.</li>
+          <li><strong>Iran's leverage:</strong> Mine charts are a concession Iran can offer without making nuclear or political concessions — improving its bargaining position significantly.</li>
+          <li><strong>Historical precedent:</strong> 1988 USS Samuel B. Roberts mine damage triggered Operation Praying Mantis. Current stakes are vastly greater.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-num">Development 2.2</div>
+      <div class="dev-title">The Wright Tanker Hoax</div>
+      <span class="status-pill pill-amber">Cabinet-Level Disorder</span>
+      <div class="dev-body">
+        Energy Secretary Wright posted — then deleted within 30 minutes — a false claim that the US Navy had escorted a tanker through Hormuz. Oil fell ~17% on the post. The White House confirmed: "The US Navy has NOT escorted a tanker or vessel at this time." IRGC immediately rebutted: "None of the US warships have dared approach even the Sea of Oman."
+        <br><br>
+        <table class="timeline-tbl">
+          <thead><tr><th>Time (ET)</th><th>Event</th><th>Market Impact</th></tr></thead>
+          <tbody>
+            <tr><td class="time-cell">1:02 PM</td><td>Wright posts false tanker escort claim</td><td>Oil –17%; Dow recovers ~600 pts</td></tr>
+            <tr><td class="time-cell">~1:30 PM</td><td>Post deleted, no explanation</td><td>Partial reversal; market confusion</td></tr>
+            <tr><td class="time-cell">Press brief</td><td>WH: Navy has NOT escorted a vessel</td><td>Oil net –9% from morning high</td></tr>
+          </tbody>
+        </table>
+        <br>Bob McNally (Rapidan Energy): "The market is betting on Trump's exit intent, not on actual barrel flows. That's a fragile foundation."
+      </div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-num">Development 2.3</div>
+      <div class="dev-title">IEA Record 400M Barrel Release — Markets Unimpressed</div>
+      <span class="status-pill pill-amber">Historic But Insufficient</span>
+      <div class="dev-body">
+        All 32 IEA member countries unanimously agreed to release 400 million barrels — the largest emergency release in IEA history, more than double the 2022 Ukraine release. G7 leaders held a videoconference chaired by Macron. <strong>Critical: oil prices ROSE after the announcement.</strong>
+        <ul>
+          <li>Birol explicitly conceded: "The most important thing for a return to stable flows is the resumption of transit through the Strait of Hormuz."</li>
+          <li>Physical limit: IEA max drawdown is 6–7M bpd vs. Hormuz blockage of 20M bpd — addressing only 30–35% of the disruption, with a 13+ day delivery lag.</li>
+          <li>Macron's framing: 400M barrels equals "20 days of Hormuz export volume" — but not a sustained fix.</li>
+          <li>JPMorgan: "Policy measures may have limited impact unless safe passage through the Strait of Hormuz is assured."</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-num">Development 2.4–2.5</div>
+      <div class="dev-title">Mojtaba Wounded · IRGC Formal Permit Regime</div>
+      <span class="status-pill pill-amber">Leadership Signal</span>
+      <div class="dev-body">
+        CNN confirmed Mojtaba suffered a fractured foot and minor injuries on Day 1. He has issued no public statement since being named Supreme Leader on March 8. Iran state TV referred to him as "janbaz" (wounded by the enemy). IRGC is operationally in command.
+        <br><br>
+        IRGC navy commander Tangsiri: "Any vessel intending to pass must get permission from Iran." On March 11, IRGC fired on and stopped the Express Rome (Israeli-owned) and Mayuree Naree (Thai-flagged). Three crew members unaccounted for. UK Maritime Trade Operations confirmed at least three ships hit on March 11.
+        <br><br>
+        <strong>Strategic significance:</strong> The permit system formalizes a two-tier Hormuz — passage granted to China/Russia, denied to Western shipping — more complex to challenge legally than a blanket blockade.
+      </div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-num">Development 2.6</div>
+      <div class="dev-title">Ghalibaf: "Break the Cycle"</div>
+      <span class="status-pill pill-red">Ceasefire Disconfirmation</span>
+      <div class="dev-body">
+        <em>"Certainly we are not seeking a ceasefire. We believe that the aggressor must be punished and taught a lesson that will deter them from attacking Iran again. The Zionist regime sees its shameful existence in the continuation of the cycle of war-negotiation-ceasefire and then war again to consolidate its dominance. We will break this cycle."</em>
+        <br><br>
+        This directly and explicitly rejects the mechanism by which the 12-Day War of June 2025 ended. Combined with Araghchi's "we must continue fighting" and IRGC's "Iran will determine when the war ends," this represents cross-institutional Iranian consensus against any near-term off-ramp.
+      </div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-num">Development 2.7–2.8</div>
+      <div class="dev-title">Wave 37 Khoramshahr-4 · US Asks Israel to Halt Energy Strikes</div>
+      <span class="status-pill pill-red">Dual Escalation Signal</span>
+      <div class="dev-body">
+        Iran launched its 37th wave of Operation True Promise 4, firing Khoramshahr-4 (Kheibar) super-heavy ballistic missiles — range ~2,000km, payload 1,500–2,000kg — in a multi-layered 3+ hour barrage targeting Tel Aviv, Haifa, West Jerusalem, Erbil, Manama, and Al Udeid. Deployment at scale signals quality-over-quantity strategic shift as lower-tier inventory depletes.
+        <br><br>
+        Simultaneously, per Axios (three sources), Trump administration asked Israel to halt energy infrastructure strikes — citing post-war cooperation, humanitarian risk (WHO "black rain" warning), and escalation concerns. <strong>First time the administration has sought to constrain Israeli targeting.</strong> Israel's compliance or non-compliance is now a key test of alliance alignment.
+      </div>
+    </div>
+  </div>
+
+  <!-- Misc developments table -->
+  <h2 style="margin-top:56px;margin-bottom:8px;font-size:22px">Additional Day 13 Developments</h2>
+  <table class="misc-table">
+    <thead><tr><th>Development</th><th>Source</th><th>Strategic Significance</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Ukraine anti-drone teams deployed to Qatar, UAE, Saudi Arabia</strong></td><td>Zelenskyy, Mar 11</td><td>NATO-GCC operational cooperation depth. Units with Iran-drone experience now inside GCC states.</td></tr>
+      <tr><td><strong>Citi evacuates Dubai office; PwC closes offices in SA, Qatar, UAE, Kuwait</strong></td><td>Al Jazeera, Mar 11</td><td>Major institutions pricing long-duration risk. Not just insurers — corporate planners.</td></tr>
+      <tr><td><strong>Iran: "Just look at the state of the global economy — very painful for them"</strong></td><td>Fortune, Mar 11</td><td>Iran explicitly confirming economic disruption as primary strategic weapon.</td></tr>
+      <tr><td><strong>EU new sanctions: 19 Iranian regime officials/entities</strong></td><td>Kallas, Mar 11</td><td>Incremental diplomatic pressure. Limited near-term impact but signals EU institutional alignment.</td></tr>
+      <tr><td><strong>Witkoff: Russia told Trump it has NOT shared intelligence with Iran</strong></td><td>NBC, Mar 11</td><td>Contradicts CNN's March 10 report of Russian satellite imagery sharing. Diplomatic credibility test.</td></tr>
+      <tr><td><strong>Quinnipiac: 53% oppose war, 60% of independents oppose</strong></td><td>Quinnipiac, Mar 9</td><td>Lowest initial war approval in modern US history. Political pressure on Trump accelerates.</td></tr>
+      <tr><td><strong>US gasoline: $3.57/gallon (AAA, Mar 11)</strong></td><td>NBC, Mar 11</td><td>Up $0.57 (+19%) since war began. $4.00 political red line now ~$0.43 away — approx. 6–9 days.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SECTION 3: FOUR-CLOCK FRAMEWORK -->
+<section class="page-section fade">
+  <div class="section-label">Section 03 — Four-Clock Attrition Framework (Upgraded from Three)</div>
+  <h2>Which Clock Runs Out First?</h2>
+  <p class="lead">The Three-Clock model has been upgraded to four clocks following the mines intelligence. Clock 4 (Mines Clearance) is now the binding constraint on any rapid diplomatic resolution.</p>
+
+  <div class="clocks">
+    <div class="clock">
+      <div class="clock-num">Clock 01</div>
+      <div class="clock-title">Iran's Launch Capacity</div>
+      <span class="status-pill pill-amber">Stressed but Functional</span>
+      <div class="clock-body">Daily ballistic rate holds at ~35/day — stable. Khoramshahr-4 deployment signals quality-over-quantity strategic shift; lower-tier inventory depleting but high-value assets concealed. Surface TELs at ~30% of war-entry capacity. Drone-primary strategy now floods lower-tier interceptors to exhaust them. IRGC morale: no confirmed desertion, mass pro-Mojtaba rally held. Underground missile cities partially operational.</div>
+      <div class="clock-stats">
+        <div><div class="cs-val" style="color:var(--amber)">~35/day</div><div class="cs-label">Ballistic missile rate (stable)</div></div>
+        <div><div class="cs-val" style="color:var(--red)">70%+</div><div class="cs-label">TEL attrition (IDF/US est.)</div></div>
+      </div>
+    </div>
+    <div class="clock">
+      <div class="clock-num">Clock 02</div>
+      <div class="clock-title">US / Israel Interceptor Stocks</div>
+      <span class="status-pill pill-red">PAC-3 Critical</span>
+      <div class="clock-body">PAC-3 Patriot at 25% of requirement even pre-war — most constrained system in theater. THAAD stressed by Jordan radar destruction ($300M). SM-3 Navy stocks stressed; Hormuz proximity limits maneuver. Arrow 3 adequate vs. ballistic but Khoramshahr-4's 1,500–2,000kg payload tests limits. Iron Dome overwhelmed at high-saturation drone/ballistic mix. THAAD production: 96/yr vs. target of 400.</div>
+      <div class="clock-stats">
+        <div><div class="cs-val" style="color:var(--red)">25%</div><div class="cs-label">PAC-3 availability vs. req.</div></div>
+        <div><div class="cs-val" style="color:var(--amber)">96/yr</div><div class="cs-label">THAAD production (target 400)</div></div>
+      </div>
+    </div>
+    <div class="clock">
+      <div class="clock-num">Clock 03</div>
+      <div class="clock-title">Economic &amp; Political Patience</div>
+      <span class="status-pill pill-red">Dominant Variable</span>
+      <div class="clock-body">$3.57/gallon US retail gasoline as of March 11 — up $0.57 (+19%) since war began. $4.00 political red line is approximately $0.43 away, or 6–9 days at current trajectory. 53% of Americans oppose the war; 60% of independents oppose. IEA record 400M barrel release failed to move markets lower. Midterm elections 8 months out. War cost ~$891M/day with no AUMF.</div>
+      <div class="clock-stats">
+        <div><div class="cs-val" style="color:var(--red)">$3.57</div><div class="cs-label">US retail gasoline (↑$0.57)</div></div>
+        <div><div class="cs-val" style="color:var(--amber)">6–9 days</div><div class="cs-label">To $4.00 political red line</div></div>
+      </div>
+    </div>
+    <div class="clock new-clock">
+      <div class="clock-num">Clock 04 · NEW — NOW BINDING</div>
+      <div class="clock-title">Mines Clearance Timeline</div>
+      <span class="status-pill pill-red">Binding Constraint</span>
+      <div class="clock-body">Even a ceasefire tomorrow cannot reopen Hormuz rapidly if mines are present. US minesweeping in active conflict zone: 2–6 weeks minimum, assuming specialized MCM vessel availability and Iranian cooperation on mine charts. Lloyd's and P&amp;I underwriters require official mine-free certification before reinstating coverage. Any ceasefire timeline must now budget 2–6 additional weeks for Hormuz reopening. Oil risk premium persists for weeks post-ceasefire.</div>
+      <div class="clock-stats">
+        <div><div class="cs-val" style="color:var(--red)">2–6 wks</div><div class="cs-label">Minimum clearance (post-CF)</div></div>
+        <div><div class="cs-val" style="color:var(--amber)">6,000+</div><div class="cs-label">Iran mine inventory</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interceptors table -->
+  <h2 style="margin-top:56px;margin-bottom:12px;font-size:22px">Interceptor System Status — Day 13</h2>
+  <table class="interceptor-table">
+    <thead><tr><th>System</th><th>War Entry Est.</th><th>Prod/Yr</th><th>Status</th><th>Day 13 Assessment</th></tr></thead>
+    <tbody>
+      <tr><td><strong>THAAD</strong></td><td>380–430</td><td>96</td><td><span class="status-pill pill-amber" style="margin:0">Stressed</span></td><td>Jordan radar destroyed; SK Patriot redeployment ongoing; coverage gaps widening</td></tr>
+      <tr><td><strong>SM-3 (Navy)</strong></td><td>~330</td><td>30–50</td><td><span class="status-pill pill-amber" style="margin:0">Stressed</span></td><td>Gulf warships vulnerable; cannot replace fast; Hormuz proximity limits maneuver</td></tr>
+      <tr><td><strong>Patriot PAC-3</strong></td><td>~25% of req.</td><td>~450</td><td><span class="status-pill pill-red" style="margin:0">Critical</span></td><td>Was already depleted pre-war; most constrained system in theater</td></tr>
+      <tr><td><strong>Arrow 3 (Israel)</strong></td><td>Classified</td><td>Classified</td><td><span class="status-pill pill-green" style="margin:0">Adequate</span></td><td>Good vs. ballistic; Khoramshahr-4 high-payload tests upper limits</td></tr>
+      <tr><td><strong>Iron Dome (Israel)</strong></td><td>~2,000+</td><td>~1,500</td><td><span class="status-pill pill-amber" style="margin:0">Adequate</span></td><td>Designed for rockets; overwhelmed at high-saturation drone/ballistic mix</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Oil table -->
+  <h2 style="margin-top:56px;margin-bottom:12px;font-size:22px">Oil Price Progression with Mines Premium</h2>
+  <div class="oil-ladder">
+    <div class="oil-step"><div class="oil-price">$73</div><div class="oil-day">Pre-war</div><div class="oil-note">Normal market conditions · Brent baseline</div></div>
+    <div class="oil-step"><div class="oil-price warn">$92</div><div class="oil-day">Day 9 · Mar 8</div><div class="oil-note">Hormuz blockade confirmed · Qatar LNG halted · Iraq –70%</div></div>
+    <div class="oil-step highlight"><div class="oil-price danger">$119</div><div class="oil-day">Day 10 intraday WTI</div><div class="oil-note">G7 emergency meeting · $100 breached · Iraq/Kuwait shutdowns</div></div>
+    <div class="oil-step"><div class="oil-price ease">$91</div><div class="oil-day">Day 11 · Wright hoax</div><div class="oil-note">False tanker escort post –17% then partial recovery · Net –9%</div></div>
+    <div class="oil-step"><div class="oil-price warn">$87–92</div><div class="oil-day">Day 13 · IEA release</div><div class="oil-note">Oil ROSE after 400M barrel announcement. Markets price as insufficient without Hormuz</div></div>
+    <div class="oil-step dashed"><div class="oil-price ghost">$130+</div><div class="oil-day">Risk: Mines + 3wks</div><div class="oil-note">Allianz recession trigger · Oxford Economics 5-wk scenario · Global GDP impact</div></div>
+  </div>
+
+  <!-- Political clock -->
+  <h2 style="margin-top:56px;margin-bottom:12px;font-size:22px">Clock 03 — US Political Price Variables</h2>
+  <table class="pol-table">
+    <thead><tr><th>Indicator</th><th>Reading</th><th>Status</th><th>Political Significance</th></tr></thead>
+    <tbody>
+      <tr><td>US gasoline (AAA, Mar 11)</td><td class="pol-val">$3.57/gal</td><td><span class="dot-red"></span>Red</td><td>Up $0.57 (+19%) in 13 days. 2022 Ukraine peak: $5.02. Cost Democrats the House.</td></tr>
+      <tr><td>Days to $4.00 at current rate</td><td class="pol-val">~6–9 days</td><td><span class="dot-red"></span>Red</td><td>$4.00 is the threshold Trump's advisers watch. Above this, polling shifts measurably.</td></tr>
+      <tr><td>War approval (Quinnipiac)</td><td class="pol-val">47% support</td><td><span class="dot-red"></span>Red</td><td>53% oppose; 60% of independents oppose. Lowest initial approval in modern US history.</td></tr>
+      <tr><td>IEA SPR release</td><td class="pol-val">400M bbl</td><td><span class="dot-red"></span>Red</td><td>Historic release announced — oil ROSE. Markets price as insufficient without Hormuz.</td></tr>
+      <tr><td>Senate battleground exposure</td><td class="pol-val">8 states</td><td><span class="dot-amber"></span>Amber</td><td>AZ, NV, WI, PA, MI, GA, NC, OH — Republican incumbents vulnerable Nov 2026.</td></tr>
+      <tr><td>Diesel (Hormuz closure Wk 2)</td><td class="pol-val">$4.50–5.00</td><td><span class="dot-red"></span>Red</td><td>Kloza (OPIS) forecast. Diesel hits trucking/agriculture/construction — broader pass-through.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SECTION 4: EXPERT QUOTES -->
+<section class="page-section fade">
+  <div class="section-label">Section 04 — Expert Panel Statements, Day 12–13</div>
+  <h2>What the Analysts Said</h2>
+  <p class="lead">Sourced from public appearances after March 9, 2026. Color coding reflects alignment with Day 13 Bayesian assessments.</p>
+
+  <div class="tl-wrap">
+    <div class="tl-line"></div>
+
+    <div class="tl-entry">
+      <div class="tl-who"><div class="tl-name">Neil Atkinson</div><div class="tl-weight-label">Former IEA Oil Head</div><div class="tl-date-label">Mar 9 · CNBC</div></div>
+      <div class="tl-node"><div class="tl-dot red"></div></div>
+      <div class="tl-quote-block red">
+        "The effective closure of the Strait of Hormuz is something energy markets have never seen before. Unless something changes very soon we are in a potentially game-changing and unprecedented energy crisis."
+        <div class="tl-source-line">IEA institutional voice · Former head of oil markets</div>
+        <div class="tl-verdict-tag verdict-red">⚡ Critical signal</div>
+        <div class="tl-source-line" style="margin-top:6px">Subsequent 400M barrel IEA release failed to bring prices down — vindicating his assessment that the fundamental problem is Hormuz access, not inventory.</div>
+      </div>
+    </div>
+
+    <div class="tl-entry">
+      <div class="tl-who"><div class="tl-name">Bob McNally</div><div class="tl-weight-label">Rapidan Energy</div><div class="tl-date-label">Mar 10 · CNBC</div></div>
+      <div class="tl-node"><div class="tl-dot amber"></div></div>
+      <div class="tl-quote-block amber">
+        "The market is still struggling to process the scale of the disruption. Traders assumed for decades that no country would be allowed to shut the Strait. The fact that it has happened at all is completely calamitous and unexpected. Markets appear to be betting on Trump's exit intent, not actual barrel flows."
+        <div class="tl-source-line">Rapidan Energy · Oil market structure</div>
+        <div class="tl-verdict-tag verdict-amber">◑ Partially validated</div>
+        <div class="tl-source-line" style="margin-top:6px">Articulates core fragility in current price structure. If ceasefire optimism collapses, reversion to $119+ will be faster than prior decline.</div>
+      </div>
+    </div>
+
+    <div class="tl-entry">
+      <div class="tl-who"><div class="tl-name">Tom Kloza</div><div class="tl-weight-label">OPIS / Gulf Oil</div><div class="tl-date-label">Mar 9 · Axios</div></div>
+      <div class="tl-node"><div class="tl-dot red"></div></div>
+      <div class="tl-quote-block red">
+        "If the strait remains closed next week, we're looking at diesel prices between $4.50 and $5 and we're looking at gasoline probably at $4 in a lot of places."
+        <div class="tl-source-line">OPIS · US retail fuel analyst of record</div>
+        <div class="tl-verdict-tag verdict-red">⚡ Red-line validated</div>
+        <div class="tl-source-line" style="margin-top:6px">Kloza's $4.00 threshold validates our political red-line model. Diesel forecast is in some ways more damaging — broader inflationary pass-through than gasoline.</div>
+      </div>
+    </div>
+
+    <div class="tl-entry">
+      <div class="tl-who"><div class="tl-name">Karen Young</div><div class="tl-weight-label">Columbia CGEP</div><div class="tl-date-label">Mar 10 · Axios</div></div>
+      <div class="tl-node"><div class="tl-dot amber"></div></div>
+      <div class="tl-quote-block amber">
+        "The market can't reorient until traffic resumes through the Strait of Hormuz. Oil is the invisible cost inside nearly everything Americans buy — it ships the goods, makes the plastics, feeds the fertilizer and fuels the flights."
+        <div class="tl-source-line">Columbia Center on Global Energy Policy</div>
+        <div class="tl-verdict-tag verdict-amber">◑ Second-order effects</div>
+        <div class="tl-source-line" style="margin-top:6px">One-third of global fertilizer trade passes through Hormuz. Full inflationary cascade from Hormuz closure peaks after any potential ceasefire.</div>
+      </div>
+    </div>
+
+    <div class="tl-entry">
+      <div class="tl-who"><div class="tl-name">Ghalibaf</div><div class="tl-weight-label">Iran Parliament Speaker</div><div class="tl-date-label">Mar 10 · X</div></div>
+      <div class="tl-node"><div class="tl-dot red"></div></div>
+      <div class="tl-quote-block red">
+        "Certainly we are not seeking a ceasefire. We believe that the aggressor must be punished and taught a lesson that will deter them from attacking Iran again. We will break this cycle."
+        <div class="tl-source-line">Iran Parliament Speaker · Ceasefire disconfirmation</div>
+        <div class="tl-verdict-tag verdict-red">⚡ Ceasefire by Mar 31: SHORT</div>
+        <div class="tl-source-line" style="margin-top:6px">Directly rejects the 12-Day War template. States Iran will not accept a ceasefire preserving US/Israel ability to resume strikes. Negotiating floor has risen, not fallen.</div>
+      </div>
+    </div>
+
+    <div class="tl-entry">
+      <div class="tl-who"><div class="tl-name">António Costa</div><div class="tl-weight-label">EU Council President</div><div class="tl-date-label">Mar 10 · Brussels</div></div>
+      <div class="tl-node"><div class="tl-dot amber"></div></div>
+      <div class="tl-quote-block amber">
+        "So far, there is only one winner in this war — Russia."
+        <div class="tl-source-line">European Council President · EU institutional voice</div>
+        <div class="tl-verdict-tag verdict-amber">◑ Russia sanctions paradox</div>
+        <div class="tl-source-line" style="margin-top:6px">Russia earns windfall revenues at higher prices with fewer restrictions while providing targeting intelligence. Costa increases EU pressure on Trump for Russian restraint and ceasefire acceleration.</div>
+      </div>
+    </div>
+
+    <div class="tl-entry">
+      <div class="tl-who"><div class="tl-name">Lloyd Blankfein</div><div class="tl-weight-label">Former Goldman CEO</div><div class="tl-date-label">Mar 10 · Fortune</div></div>
+      <div class="tl-node"><div class="tl-dot green"></div></div>
+      <div class="tl-quote-block green">
+        "It's so impossible to live with. This Iran war won't last long."
+        <div class="tl-source-line">Former Goldman Sachs CEO · Wall Street consensus</div>
+        <div class="tl-verdict-tag verdict-green">↑ Off-Ramp indicator</div>
+        <div class="tl-source-line" style="margin-top:6px">Wall Street institutional consensus on Clock 3 forcing an exit. Critical caveat: conflates US domestic pressure with Iranian willingness — two different variables. Blankfein prices in US exit intent; does not price in Ghalibaf breaking the cycle.</div>
+      </div>
+    </div>
+
+    <div class="tl-entry">
+      <div class="tl-who"><div class="tl-name">Speaker Johnson</div><div class="tl-weight-label">US House Speaker</div><div class="tl-date-label">Mar 10 · Florida</div></div>
+      <div class="tl-node"><div class="tl-dot amber"></div></div>
+      <div class="tl-quote-block amber">
+        "Operation in Iran is by design limited in scope and mission. The mission is being achieved. It's nearly completed. Rising gas prices are a temporary blip that will come down in a couple of weeks."
+        <div class="tl-source-line">US House Speaker · Intra-administration contradictions</div>
+        <div class="tl-verdict-tag verdict-amber">⚠ Messaging contradiction</div>
+        <div class="tl-source-line" style="margin-top:6px">Johnson's "nearly completed" claim contradicts Hegseth's "most intense day" and "accelerating not decelerating" made simultaneously. Intra-administration contradiction is itself a market signal.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 5: DIPLOMATIC ASSESSMENT -->
+<section class="page-section fade">
+  <div class="section-label">Section 05 — Diplomatic Assessment</div>
+  <h2>19 Days to Trump-Xi Summit — Off-Ramp Paradox</h2>
+  <p class="lead">Off-Ramp ticks UP from 10–13% to 13–17% despite all hardline signals. The mechanism is a US acknowledgment of regime-survival brokered by China as face-saving for Trump at the March 31 summit.</p>
+
+  <div class="callout-amber" style="margin-bottom:32px">
+    <strong>Minimum Viable Off-Ramp Formula (13–17% probability):</strong> Trump declares victory on military terms → China brokers "humanitarian pause" → Mojtaba issues no formal surrender but back-channel agrees to monitored ceasefire framed as "preconditions for talks" → Both leaders claim domestic victory narratives → Hormuz gradually reopens as mines cleared under international supervision.
+  </div>
+
+  <div class="dev-grid">
+    <div class="dev-card">
+      <div class="dev-num">Off-Ramp Signal 1</div>
+      <div class="dev-title">US Asks Israel to Halt Energy Strikes</div>
+      <span class="status-pill pill-green">Venezuela Model</span>
+      <div class="dev-body">This is the clearest signal of implicit US acknowledgment that regime survival combined with post-war cooperation is an acceptable outcome — the "Venezuela scenario." This is the minimum formula for a Chinese-brokered pause. It simultaneously signals a potential US-Israel fracture; Israel's compliance or non-compliance is the key test.</div>
+    </div>
+    <div class="dev-card">
+      <div class="dev-num">Off-Ramp Signal 2</div>
+      <div class="dev-title">Iran Confirms Ceasefire Contacts</div>
+      <span class="status-pill pill-amber">Diplomatic Plumbing</span>
+      <div class="dev-body">Deputy FM Gharibabadi confirmed China, Russia and France have contacted Tehran. First official Iranian acknowledgment of parallel diplomatic tracks, even while publicly rejecting all terms. Witkoff and Kushner planning Israel visit with Iran coordination as stated purpose. Active diplomatic thinking about an exit formula is now underway.</div>
+    </div>
+    <div class="dev-card">
+      <div class="dev-num">Off-Ramp Signal 3 — Mines Leverage</div>
+      <div class="dev-title">Mine Charts as CBM Without Nuclear Concessions</div>
+      <span class="status-pill pill-amber">Operationally Plausible</span>
+      <div class="dev-body">Iran can offer to provide mine charts or assist clearance as a confidence-building measure without making any political or nuclear concessions. This is actually the most operationally plausible piece of any ceasefire formula — Iran improves its bargaining position while giving something of concrete economic value (Hormuz reopening) to all parties, including China.</div>
+    </div>
+    <div class="dev-card">
+      <div class="dev-num">Off-Ramp Constraint</div>
+      <div class="dev-title">Primary Obstacle: Unconditional Surrender Rhetoric</div>
+      <span class="status-pill pill-red">Binding Constraint</span>
+      <div class="dev-body">Trump's "unconditional surrender" rhetoric makes any public framework look like capitulation unless carefully worded by Chinese intermediaries. Ghalibaf's "break the cycle" eliminates the 12-Day War template entirely. Any formula requires both sides to simultaneously claim domestic victory — currently very difficult to construct given public positioning.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 6: MARKETS -->
+<section class="page-section fade">
+  <div class="section-label">Section 06 — Prediction Market Analysis</div>
+  <h2>Polymarket Mispricings — Day 13 Update</h2>
+  <p class="lead">All Polymarket prices as of March 12, 2026. Note thin markets (&lt;$5M volume) are susceptible to manipulation — six wallets made $1.2M on pre-attack positioning.</p>
+
+  <div class="callout" style="margin-bottom:32px">
+    <strong>Priority upgrade — Ceasefire by March 31 SHORT:</strong> Moves to VERY HIGH conviction. Ghalibaf's "break the cycle" + mines intelligence are the two most significant new disconfirmations of the ceasefire scenario. Market at ~32% implies 1-in-3 probability of back-channel initiation, framework agreement, public signaling, and ceasefire holding — all within 19 days. Bayesian estimate: 10–14%. Edge: +18–22 points SHORT.
+  </div>
+
+  <div class="market-grid">
+    <div class="market-card">
+      <div class="market-name">Mojtaba Khamenei as de facto leader, Dec 31 2026</div>
+      <div class="market-row"><span class="market-row-label">Polymarket</span><span class="market-poly-price">~55%</span></div>
+      <div class="market-row"><span class="market-row-label">Bayesian est.</span><span class="market-price" style="color:var(--green)">68–72%</span></div>
+      <div class="edge-tag edge-long">Long +13–17 pts</div>
+      <div class="conviction-line">Very high — confirmed; IRGC pledged; Tehran rally; explicit threats increase concealment incentive</div>
+    </div>
+    <div class="market-card">
+      <div class="market-name">Iranian regime falls before 2027</div>
+      <div class="market-row"><span class="market-row-label">Polymarket</span><span class="market-poly-price">~30%</span></div>
+      <div class="market-row"><span class="market-row-label">Bayesian est.</span><span class="market-price" style="color:var(--red)">12–15%</span></div>
+      <div class="edge-tag edge-short">Short +15–18 pts</div>
+      <div class="conviction-line">Very high — NIC report; IRGC cohesion; Wave 37 under active bombing; Mojtaba confirmed</div>
+    </div>
+    <div class="market-card">
+      <div class="market-name">Ceasefire by March 31, 2026</div>
+      <div class="market-row"><span class="market-row-label">Polymarket</span><span class="market-poly-price">~32%</span></div>
+      <div class="market-row"><span class="market-row-label">Bayesian est.</span><span class="market-price" style="color:var(--red)">10–14%</span></div>
+      <div class="edge-tag edge-short">Short +18–22 pts</div>
+      <div class="priority-tag">⚡ Priority Upgrade</div>
+      <div class="conviction-line">Very high — Ghalibaf breaks cycle; mines in Hormuz; no back-channel; only 19 days remain</div>
+    </div>
+    <div class="market-card">
+      <div class="market-name">Regime fall by March 31, 2026</div>
+      <div class="market-row"><span class="market-row-label">Polymarket</span><span class="market-poly-price">~14%</span></div>
+      <div class="market-row"><span class="market-row-label">Bayesian est.</span><span class="market-price" style="color:var(--red)">4–6%</span></div>
+      <div class="edge-tag edge-short">Short +8–10 pts</div>
+      <div class="conviction-line">Very high — Mojtaba confirmed this morning; armed forces intact; IRGC pledged</div>
+    </div>
+    <div class="market-card">
+      <div class="market-name">Ceasefire by June 30, 2026</div>
+      <div class="market-row"><span class="market-row-label">Polymarket</span><span class="market-poly-price">~55%</span></div>
+      <div class="market-row"><span class="market-row-label">Bayesian est.</span><span class="market-price" style="color:var(--amber)">38–46%</span></div>
+      <div class="edge-tag edge-short">Short +9–17 pts</div>
+      <div class="conviction-line">Moderate — longer window; economic pressure genuine; CI overlaps market at upper bound</div>
+    </div>
+    <div class="market-card">
+      <div class="market-name">US ground forces in Iran before 2027</div>
+      <div class="market-row"><span class="market-row-label">Polymarket</span><span class="market-poly-price">~12%</span></div>
+      <div class="market-row"><span class="market-row-label">Bayesian est.</span><span class="market-price" style="color:var(--muted)">8–14%</span></div>
+      <div class="edge-tag edge-skip">Skip — within CI</div>
+      <div class="conviction-line">Within confidence interval — uranium seizure option floated but not authorized</div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 7: KEY UNCERTAINTIES -->
+<section class="page-section fade">
+  <div class="section-label">Section 07 — Key Uncertainties</div>
+  <h2>Day 13 Uncertainty Rankings</h2>
+  <div style="overflow-x:auto">
+    <table class="unc-table">
+      <thead><tr><th>#</th><th>Uncertainty</th><th>Modal Assumption</th><th>Scenario Impact</th><th>Resolution Indicator</th></tr></thead>
+      <tbody>
+        <tr><td><span class="unc-rank">1</span></td><td><span class="unc-title">Mines: Hormuz extent + clearance timeline</span></td><td>Few dozen; weeks to clear</td><td>Catastrophe +15pp if field expands to hundreds; Off-Ramp –8pp regardless (structural delay)</td><td>US Navy MCM deployment; Iranian mine chart disclosure; CENTCOM statements</td></tr>
+        <tr><td><span class="unc-rank">2</span></td><td><span class="unc-title">Actual THAAD/SM-3 inventory vs. attrition</span></td><td>Stressed but not exhausted</td><td>Catastrophe +12pp if any system enters critical depletion</td><td>SK redeployment timeline; CSIS/Heritage modeling; Congressional testimony</td></tr>
+        <tr><td><span class="unc-rank">3</span></td><td><span class="unc-title">Trump-Xi summit: ceasefire framework vs. trade-only</span></td><td>Summit proceeds; China offers face-saving formula</td><td>Off-Ramp +10pp if ceasefire framework; –5pp if narrowed to trade</td><td>Witkoff Israel visit outcome; Wang Yi statements; Mar 31 prep signals</td></tr>
+        <tr><td><span class="unc-rank">4</span></td><td><span class="unc-title">US gasoline crossing $4.00 threshold</span></td><td>$3.57 now; ~6–9 days at current trajectory</td><td>Off-Ramp +8pp if Trump shows flexibility; Republican Senate pressure mounts</td><td>AAA daily survey; Trump approval; Republican Senate floor statements</td></tr>
+        <tr><td><span class="unc-rank">5</span></td><td><span class="unc-title">NATO Turkey — third Iranian missile with casualties</span></td><td>2 missiles intercepted; Erdogan NOT invoking Article 4</td><td>Catastrophe +15–20pp if Article 4 invoked; most underpriced tail risk</td><td>Erdogan statements; NATO FM communique; US-Turkey consultations</td></tr>
+        <tr><td><span class="unc-rank">6</span></td><td><span class="unc-title">Houthi entry into war (Red Sea)</span></td><td>Restrained since 2025 Israeli strikes on leadership</td><td>Catastrophe +10pp if Houthis resume commercial/Israel strikes</td><td>Red Sea attack rates; ACLED Yemen hub</td></tr>
+        <tr><td><span class="unc-rank">7</span></td><td><span class="unc-title">Israel compliance with US request to halt energy strikes</span></td><td>Request sent; compliance unconfirmed</td><td>Off-Ramp +5pp if complies; Catastrophe +8pp if Iran retaliates with intensified energy targeting</td><td>IDF targeting announcements; IRGC Wave count; UAE/Saudi infrastructure</td></tr>
+        <tr><td><span class="unc-rank">8</span></td><td><span class="unc-title">Underground missile city accessible TEL count</span></td><td>~35/day consistent with ~70% TEL attrition</td><td>Quagmire/Catastrophe +12pp if rate rises above 80/day</td><td>Daily ballistic count; if sustained above 80/day into Day 15+, reassess</td></tr>
+        <tr><td><span class="unc-rank">9</span></td><td><span class="unc-title">CM-302 anti-ship missile delivery from China to Iran</span></td><td>Deal reportedly in progress; delivery status unknown</td><td>Catastrophe +8pp if US carrier hit by Chinese-supplied missile</td><td>US carrier posture; naval engagement rules; CENTCOM statements</td></tr>
+        <tr><td><span class="unc-rank">10</span></td><td><span class="unc-title">Mojtaba public address — content and intent signal</span></td><td>Silent since March 8 confirmation; fractured foot</td><td>Any flexibility → Off-Ramp +5pp. Nuclear intent → Catastrophe +6pp</td><td>IRGC security posture; absence patterns; state media hints</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- SECTION 8: LEADING INDICATORS -->
+<section class="page-section fade">
+  <div class="section-label">Section 08 — Leading Indicators to Watch</div>
+  <h2>Bayesian Threshold Signals</h2>
+  <div class="indicator-grid">
+    <div class="ind-card">
+      <div>
+        <div class="ind-name">Mines in Hormuz</div>
+        <div class="ind-current">Few dozen confirmed (CNN)</div>
+        <div class="ind-threshold"><strong>50+ mines confirmed</strong> → Catastrophe +10pp. Iran mine chart disclosure + MCM start → Off-Ramp +8pp.</div>
+      </div>
+      <span class="ind-pill pill-red">Watch</span>
+    </div>
+    <div class="ind-card">
+      <div>
+        <div class="ind-name">US Gasoline (AAA daily)</div>
+        <div class="ind-current">$3.57/gallon (Mar 11)</div>
+        <div class="ind-threshold">Above <strong>$4.00</strong> → political red line. Trump approval below 43% → Off-Ramp +8pp.</div>
+      </div>
+      <span class="ind-pill pill-red">Critical</span>
+    </div>
+    <div class="ind-card">
+      <div>
+        <div class="ind-name">Daily Iran Ballistic Rate</div>
+        <div class="ind-current">~35/day (stable)</div>
+        <div class="ind-threshold">Above <strong>80/day</strong> → underground TELs confirmed → Quagmire/Catastrophe +8pp. Below 15 → TEL attrition decisive.</div>
+      </div>
+      <span class="ind-pill pill-amber">Monitor</span>
+    </div>
+    <div class="ind-card">
+      <div>
+        <div class="ind-name">Brent Crude</div>
+        <div class="ind-current">$92–101 (volatile)</div>
+        <div class="ind-threshold">Above <strong>$115</strong> → G7 forced SPR release. Below $85 → ceasefire optimism priced in; fragile foundation.</div>
+      </div>
+      <span class="ind-pill pill-amber">Monitor</span>
+    </div>
+    <div class="ind-card">
+      <div>
+        <div class="ind-name">Witkoff Israel Visit</div>
+        <div class="ind-current">Planned for next week</div>
+        <div class="ind-threshold">Witkoff mentions Iran ceasefire formula post-visit → Off-Ramp +10pp. Visit narrows to Gaza only → no change.</div>
+      </div>
+      <span class="ind-pill pill-green">Upside</span>
+    </div>
+    <div class="ind-card">
+      <div>
+        <div class="ind-name">Turkey NATO Status</div>
+        <div class="ind-current">2 missiles in airspace; NO Article 4</div>
+        <div class="ind-threshold">Third missile + casualties → Article 4 forced → Catastrophe <strong>+15–20pp</strong>. Most underpriced tail risk in the model.</div>
+      </div>
+      <span class="ind-pill pill-red">Tail Risk</span>
+    </div>
+    <div class="ind-card">
+      <div>
+        <div class="ind-name">Houthi Attack Rate</div>
+        <div class="ind-current">Restrained since Oct 2025</div>
+        <div class="ind-threshold">First Houthi ballistic strike on Israel or US carrier → Catastrophe +8pp. Continued restraint → no change.</div>
+      </div>
+      <span class="ind-pill pill-amber">Watch</span>
+    </div>
+    <div class="ind-card">
+      <div>
+        <div class="ind-name">Ruwais / Saudi Aramco</div>
+        <div class="ind-current">Ruwais halted (precaution)</div>
+        <div class="ind-threshold">Ruwais permanent damage → global petrochemical crisis + $15–25 additional oil premium on top of current levels.</div>
+      </div>
+      <span class="ind-pill pill-red">Watch</span>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 9: STRATEGIC CONCLUSIONS -->
+<section class="page-section fade">
+  <div class="section-label">Section 09 — Strategic Conclusions</div>
+  <h2>Day 13 — The Catastrophe Threshold</h2>
+
+  <div class="conclusion-grid">
+    <div class="conc-card highlight">
+      <div class="conc-num">10.1</div>
+      <div class="conc-title">First Modal Scenario Change in 13 Days</div>
+      <div class="conc-body">Catastrophe has reached parity with Quagmire. Five drivers: mines transform blockade from threat-based to physics-based; IEA release failed — oil ROSE; Wright hoax destroys US market credibility; Ghalibaf eliminates the 12-Day War template; Wave 37 Khoramshahr-4 signals strategic adaptation, not desperation. Combined Quagmire + Catastrophe exceeds 80%.</div>
+    </div>
+    <div class="conc-card">
+      <div class="conc-num">10.2</div>
+      <div class="conc-title">The Off-Ramp Paradox</div>
+      <div class="conc-body">Off-Ramp increases from 10–13% to 13–17% despite all hardline signals. The mechanism: Off-Ramp now requires a US acknowledgment of regime-survival brokered by China. The diplomatic plumbing exists — US asked Israel to halt energy strikes, Witkoff is visiting with an Iran agenda, China has contacted Tehran, Iran's Deputy FM confirmed these contacts. Mines create operationally plausible Iranian concession that avoids nuclear capitulation.</div>
+    </div>
+    <div class="conc-card">
+      <div class="conc-num">10.3</div>
+      <div class="conc-title">The Single Most Actionable Variable</div>
+      <div class="conc-body">Watch US retail gasoline. Trump's political behavior is most strongly predicted by pump prices relative to $4.00. At $3.57 today, the red line is $0.43 away — approximately 6–9 days. When Trump crosses $4.00 and his approval shows Republican Senate seats at risk, the probability of a sudden Mar-a-Lago call to Xi — bypassing staff, offering a face-saving formula — increases sharply. This is the mechanism by which Clock 3 terminates the war: not diplomacy, not military victory, but domestic economic pain forcing Trump's hand.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <strong>Sources:</strong> Al Jazeera · ACLED Special Issue March 2026 · NBC News · CNBC · Reuters · EIA STEO · IEA · Quinnipiac · AAA · Kpler · Axios · NPR · Times of Israel · Euronews · Fortune · Wikipedia 2026 Iran War (live) · Britannica · Polymarket · Rapidan Energy · Flashpoint · CFR Global Conflict Tracker · House of Commons Library · Congress.gov CRS · OilPrice.com<br>
+  <strong>Methodology:</strong> Bayesian_15Expert_Report.docx · Bayesian_Military_Assessment.docx · Satopaa et al. (2014) extremizing method · Random seed 42 · N=100,000 Monte Carlo draws · Jeffreys Beta(0.5,0.5) prior · 113 scored predictions · Extremizing factor d=0.675<br>
+  <strong>Strategic Intelligence &amp; Bayesian Assessment Consortium · Day 13 · March 12, 2026</strong>
+</footer>
+
+<script>
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.06 });
+  document.querySelectorAll('.fade').forEach(el => io.observe(el));
+</script>
+
+
+</body></html>

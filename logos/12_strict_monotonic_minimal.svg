@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 172" fill="none" aria-label="Strict Monotonic Minimal">
+  <g transform="translate(85 0) scale(0.66 1)">
+    <path d="M60 78 C72 78 82 104 100 104 C118 104 128 78 140 78 C156 78 172 90 188 104 C206 90 222 66 240 66 C260 66 276 90 294 110 C314 92 334 64 356 64" stroke="#1a1a1a" stroke-width="8.7" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M356 64 C372 92 398 124 425 133" stroke="#1a1a1a" stroke-width="8.7" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="12 10" />
+  </g>
+</svg>

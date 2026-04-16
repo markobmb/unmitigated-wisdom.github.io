@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 180" fill="none" aria-label="Strict Monotonic Editorial Gray Split">
+  <g transform="translate(85 0) scale(0.66 1)">
+    <path d="M56 74 C70 74 80 110 102 110 C124 110 134 74 148 74" stroke="#1a1a1a" stroke-width="9.2" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M148 74 C166 74 182 90 198 108 C218 90 236 58 258 58 C282 58 300 92 322 118 C344 92 366 50 392 50" stroke="#6b6b6b" stroke-width="9.2" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M392 50 C408 88 436 138 467 152" stroke="#6b6b6b" stroke-width="9.2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="12 10" />
+  </g>
+</svg>

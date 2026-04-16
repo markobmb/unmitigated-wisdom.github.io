@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            window.parent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            window.parent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            window.parent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        let requestId = 0;
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = requestId++;
+              callbacksMap.set(id, { resolve, reject });
+              window.parent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = requestId++;
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream
+                resolve(new Response(stream, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                }));
+              },
+              reject,
+              channelId
+            });
+            
+            window.parent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          if (event.data.type === 'takeScreenshot') {
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              window.parent.postMessage({
+                type: 'screenshotError',
+                error: new Error('Root element not found'),
+              }, '*');
+            }
+            const screenshot = await htmlToImage.toPng(rootElement, {
+              imagePlaceholder:
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+            });
+            window.parent.postMessage({
+              type: 'screenshotData',
+              data: screenshot,
+            }, '*');
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              window.parent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            window.parent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            window.parent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          window.parent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          window.parent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Missile That Wasn't Destroyed — Iran SRBM Fact Brief</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0a0c;
+  --bg-alt: #131318;
+  --bg-card: #16161c;
+  --bg-elev: #1c1c24;
+  --border: #28282f;
+  --border-bright: #38383f;
+  --ink: #ebe8e1;
+  --ink-dim: #9c9a92;
+  --ink-mute: #5a5854;
+  --red: #d4493d;
+  --red-dim: rgba(212,73,61,0.12);
+  --red-bright: #e85a4d;
+  --amber: #d4a03c;
+  --teal: #6ec3a8;
+  --steel: #6b8aa8;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.72;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--red); color: var(--bg); }
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 40px;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 85% 25%, rgba(212,73,61,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 35% at 10% 85%, rgba(212,73,61,0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 16px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.2s;
+}
+.hero-tag::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  box-shadow: 0 0 12px var(--red);
+}
+
+.hero-byline {
+  margin-bottom: 36px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.3s;
+}
+.hero-byline a {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-dim);
+  text-decoration: none;
+  letter-spacing: 0.2px;
+  transition: color 0.2s;
+}
+.hero-byline a span {
+  color: var(--ink);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1px;
+}
+.hero-byline a:hover span { color: var(--red); border-bottom-color: var(--red); }
+
+.hero h1 {
+  font-family: 'Fraunces', serif;
+  font-weight: 900;
+  font-size: clamp(40px, 6vw, 84px);
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  max-width: 940px;
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.4s;
+}
+.hero h1 .strike {
+  color: var(--ink-mute);
+  text-decoration: line-through;
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 4px;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--red);
+  font-weight: 600;
+}
+
+.hero-sub {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-dim);
+  max-width: 720px;
+  line-height: 1.5;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.6s;
+}
+
+.hero-meta {
+  margin-top: 56px;
+  display: flex;
+  gap: 48px;
+  flex-wrap: wrap;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.8s;
+}
+.hero-meta-item label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 6px;
+}
+.hero-meta-item span {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.hero-meta-item span.acc { color: var(--red); }
+
+/* MAIN */
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+/* HEADLINE STAT */
+.headline-stat {
+  margin-top: 64px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--red);
+  padding: 40px 44px;
+  border-radius: 4px;
+}
+.hs-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 14px;
+}
+.hs-claim {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1.4;
+  color: var(--ink-dim);
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.hs-claim .quote-mark { color: var(--red); font-style: normal; font-weight: 700; }
+.hs-claim .source {
+  display: block;
+  margin-top: 10px;
+  font-family: 'Inter', sans-serif;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-mute);
+  letter-spacing: 0.5px;
+}
+.hs-reality-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 8px;
+}
+.hs-reality {
+  font-family: 'Fraunces', serif;
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--ink);
+  font-weight: 400;
+}
+.hs-reality strong { font-weight: 700; color: var(--red-bright); }
+
+/* SECTIONS */
+section { padding: 80px 0; position: relative; z-index: 1; }
+section + section { border-top: 1px solid var(--border); }
+.section-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--red);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+h2 {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: 38px;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  margin-bottom: 24px;
+  color: var(--ink);
+}
+h2 em { font-style: italic; color: var(--red); font-weight: 600; }
+h3 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.2px;
+  margin-top: 44px;
+  margin-bottom: 16px;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+p { margin-bottom: 18px; color: var(--ink-dim); }
+p.lead {
+  font-size: 21px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.6;
+  font-family: 'Fraunces', serif;
+}
+p strong { color: var(--ink); font-weight: 600; }
+
+/* STAT GRID */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 32px 0;
+}
+.stat-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--red);
+  padding: 24px 20px;
+  border-radius: 4px;
+}
+.stat-block .lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.stat-block .val {
+  font-family: 'Fraunces', serif;
+  font-weight: 900;
+  font-size: 38px;
+  line-height: 0.95;
+  color: var(--red);
+  margin-bottom: 8px;
+}
+.stat-block .sub {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: var(--ink-dim);
+  line-height: 1.45;
+}
+.stat-block.dim { border-top-color: var(--border-bright); }
+.stat-block.dim .val { color: var(--ink); }
+
+/* CHART CONTAINER */
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 28px 24px 20px;
+  margin: 28px 0;
+}
+.chart-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 20px;
+}
+.chart-title strong { color: var(--ink); }
+canvas { display: block; }
+
+/* PHASE BREAKDOWN */
+.phase-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 28px 0;
+}
+.phase-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 18px 14px;
+}
+.phase-tile.surge {
+  background: var(--red-dim);
+  border-color: rgba(212,73,61,0.4);
+}
+.phase-tile .ph-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 8px;
+}
+.phase-tile.surge .ph-name { color: var(--red); }
+.phase-tile .ph-bm {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.phase-tile.surge .ph-bm { color: var(--red-bright); }
+.phase-tile .ph-bm .unit {
+  font-size: 10px;
+  color: var(--ink-mute);
+  font-weight: 400;
+}
+.phase-tile .ph-dr {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+/* COMPARISON TABLE - SRBM vs MRBM */
+.comparison-table {
+  margin: 32px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.comp-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 2px solid var(--border-bright);
+}
+.comp-col-head {
+  padding: 22px 26px;
+  border-right: 1px solid var(--border);
+}
+.comp-col-head:last-child { border-right: none; }
+.comp-col-head.srbm { background: var(--red-dim); }
+.comp-col-head.mrbm { background: var(--bg-elev); }
+.comp-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.comp-col-head.srbm .comp-tag { color: var(--red); }
+.comp-col-head.mrbm .comp-tag { color: var(--ink-mute); }
+.comp-name {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.comp-name em { font-style: italic; }
+.comp-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 1fr;
+  border-bottom: 1px solid var(--border);
+}
+.comp-row:last-child { border-bottom: none; }
+.comp-row > div { padding: 18px 22px; border-right: 1px solid var(--border); }
+.comp-row > div:last-child { border-right: none; }
+.comp-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  background: var(--bg-elev);
+}
+.comp-cell {
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+.comp-cell strong { color: var(--ink); font-weight: 600; }
+.comp-cell .big {
+  display: block;
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.comp-cell.srbm-cell .big { color: var(--red); }
+
+/* CALLOUT */
+.callout {
+  display: flex;
+  gap: 18px;
+  padding: 24px 26px;
+  border-radius: 4px;
+  margin: 28px 0;
+  font-family: 'Fraunces', serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.callout.danger { background: var(--red-dim); border-left: 3px solid var(--red); }
+.callout.gold { background: rgba(212,160,60,0.1); border-left: 3px solid var(--amber); }
+.callout-mark {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 24px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 4px;
+}
+.callout.danger .callout-mark { color: var(--red); }
+.callout.gold .callout-mark { color: var(--amber); }
+.callout-body { color: var(--ink-dim); }
+.callout-body strong { color: var(--ink); font-weight: 600; }
+
+/* TAKEAWAYS */
+.takeaway-list {
+  margin: 28px 0;
+  padding: 0;
+  list-style: none;
+}
+.takeaway-list li {
+  padding: 22px 0 22px 56px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  font-family: 'Fraunces', serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+.takeaway-list li:last-child { border-bottom: none; }
+.takeaway-list li::before {
+  content: counter(takeaway, decimal-leading-zero);
+  counter-increment: takeaway;
+  position: absolute;
+  left: 0;
+  top: 22px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--red);
+  letter-spacing: 1px;
+}
+.takeaway-list { counter-reset: takeaway; }
+.takeaway-list li strong { color: var(--ink); font-weight: 600; }
+
+/* VERDICT */
+.verdict-box {
+  background: linear-gradient(135deg, var(--red-dim), rgba(212,73,61,0.02));
+  border: 1px solid rgba(212,73,61,0.3);
+  border-radius: 6px;
+  padding: 44px;
+  margin: 40px 0;
+}
+.verdict-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 18px;
+}
+.verdict-text {
+  font-family: 'Fraunces', serif;
+  font-size: 21px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.verdict-text em { color: var(--red); font-style: italic; font-weight: 600; }
+
+/* FOOTER */
+.foot {
+  padding: 56px 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+.foot p {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-bottom: 6px;
+}
+.foot a { color: var(--red); text-decoration: none; }
+
+/* RESPONSIVE */
+@media (max-width: 780px) {
+  .hero { padding: 60px 24px; }
+  .wrap { padding: 0 22px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .phase-grid { grid-template-columns: repeat(2, 1fr); }
+  .comp-row { grid-template-columns: 1fr; }
+  .comp-row > div { border-right: none; border-bottom: 1px solid var(--border); }
+  .comp-row > div:last-child { border-bottom: none; }
+  .verdict-box { padding: 28px; }
+  .verdict-text { font-size: 18px; }
+  h2 { font-size: 30px; }
+  .headline-stat { padding: 28px 24px; }
+  .hs-claim { font-size: 18px; }
+  .hs-reality { font-size: 17px; }
+}
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .phase-grid { grid-template-columns: 1fr; }
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.fade-in.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body id="artifacts-component-root-html">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Fact Brief — Iran Ballistic Missile Force</div>
+  <div class="hero-byline"><a href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener">by <span>Unmitigated Wisdom</span></a></div>
+  <h1>The Missile Force <span class="strike">Was Destroyed.</span><br>Except <em>It Wasn't.</em></h1>
+  <p class="hero-sub">Thirty-eight days of operational data show Iran's short-range ballistic missile campaign sustaining well above 20 launches per day — with a sharp resurgence in late March that the “90% destroyed” narrative cannot explain.</p>
+
+  <div class="hero-meta">
+    <div class="hero-meta-item">
+      <label>Coverage</label>
+      <span>D1 – D38</span>
+    </div>
+    <div class="hero-meta-item">
+      <label>Total BMs Fired</label>
+      <span class="acc">1,725+</span>
+    </div>
+    <div class="hero-meta-item">
+      <label>Phase V Trend</label>
+      <span class="acc">Resurgence</span>
+    </div>
+    <div class="hero-meta-item">
+      <label>Prepared</label>
+      <span>April 6, 2026</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- HEADLINE CLAIM vs REALITY -->
+  <div class="headline-stat fade-in">
+    <div class="hs-label">The Claim · The Data</div>
+    <p class="hs-claim"><span class="quote-mark">“</span>We have destroyed roughly 70 to 90 percent of Iran's missile launchers and ballistic missile production capacity. Their missiles are just about used up or beaten.<span class="quote-mark">”</span><span class="source">— CENTCOM and White House messaging, March 2026</span></p>
+    <div class="hs-reality-label">What the daily curve actually shows</div>
+    <p class="hs-reality">Through 38 days of war, Iran has fired <strong>more than 1,725 ballistic missiles</strong> at GCC states, Israel, and Jordan. After bottoming out at 18.6 BMs/day on Day 26, the seven-day rolling average <strong>rose every day through Day 33</strong>. Day 29 logged 43 ballistic missiles — the highest single-day total since the opening salvo. <strong>The campaign is not declining. It is reorganising.</strong></p>
+  </div>
+
+  <!-- SECTION 1: HEADLINE STATS -->
+  <section class="fade-in">
+    <div class="section-num">Section 01 — The Numbers</div>
+    <h2>Thirty-eight days. <em>Seventeen hundred missiles.</em></h2>
+    <p class="lead">Every figure below is a confirmed floor, drawn from official Ministry of Defence statements published by the UAE, Bahrain, Kuwait, Saudi Arabia, Jordan, and Israel, then triangulated against Alma Research daily reports and CTP-ISW analysis. Actual launches are estimated to be 20–35% higher than these floors, because Saudi Arabia does not publish systematic cumulative figures and several countries dropped their granular reporting after the first week.</p>
+
+    <div class="stat-grid">
+      <div class="stat-block">
+        <div class="lbl">Total Ballistic Missiles</div>
+        <div class="val">1,725</div>
+        <div class="sub">D1–D38 confirmed floor, all theatres</div>
+      </div>
+      <div class="stat-block">
+        <div class="lbl">Total Drones &amp; UAVs</div>
+        <div class="val">3,186</div>
+        <div class="sub">D1–D38 confirmed floor, all theatres</div>
+      </div>
+      <div class="stat-block">
+        <div class="lbl">Combined Projectiles</div>
+        <div class="val">4,911</div>
+        <div class="sub">Largest sustained barrage in modern history</div>
+      </div>
+      <div class="stat-block dim">
+        <div class="lbl">Days of Sustained Fire</div>
+        <div class="val">38</div>
+        <div class="sub">No multi-day pauses recorded</div>
+      </div>
+    </div>
+
+    <p>The opening 24 hours produced 503 ballistic missiles. That number drops sharply over the first week — the source of the “Iran is collapsing” narrative — and then settles into a remarkably durable floor. The most analytically important fact in the entire dataset is not the opening salvo. It is the floor.</p>
+  </section>
+
+  <!-- SECTION 2: THE DAILY CURVE -->
+  <section class="fade-in">
+    <div class="section-num">Section 02 — The Curve</div>
+    <h2>Five phases. <em>The fifth one is going up.</em></h2>
+    <p class="lead">Plotting the daily ballistic missile and drone counts across all theatres reveals five distinct operational phases. The first four are consistent with the public narrative of Iranian degradation. The fifth — the one we are currently in — is not.</p>
+
+    <div class="chart-card">
+      <div class="chart-title">Daily Ordnance — Iran → All Theatres · <strong>D1 to D38</strong></div>
+      <canvas id="dailyChart" height="899" style="display: block; box-sizing: border-box; height: 817px; width: 766px;" width="842"></canvas>
+    </div>
+
+    <div class="phase-grid">
+      <div class="phase-tile">
+        <div class="ph-name">Phase I · D1–D6</div>
+        <div class="ph-bm">148.7 <span class="unit">BM/d</span></div>
+        <div class="ph-dr">334.7 dr/d</div>
+      </div>
+      <div class="phase-tile">
+        <div class="ph-name">Phase II · D7–D16</div>
+        <div class="ph-bm">37.8 <span class="unit">BM/d</span></div>
+        <div class="ph-dr">103.5 dr/d</div>
+      </div>
+      <div class="phase-tile">
+        <div class="ph-name">Phase III · D17–D22</div>
+        <div class="ph-bm">28.7 <span class="unit">BM/d</span></div>
+        <div class="ph-dr">85.0 dr/d</div>
+      </div>
+      <div class="phase-tile">
+        <div class="ph-name">Phase IV · D23–D28</div>
+        <div class="ph-bm">19.0 <span class="unit">BM/d</span></div>
+        <div class="ph-dr">46.0 dr/d</div>
+      </div>
+      <div class="phase-tile surge">
+        <div class="ph-name">Phase V · D29–D38 ↑</div>
+        <div class="ph-bm">27.8 <span class="unit">BM/d</span></div>
+        <div class="ph-dr">61.0 dr/d</div>
+      </div>
+    </div>
+
+    <div class="callout danger">
+      <div class="callout-mark">!</div>
+      <div class="callout-body"><strong>The trend reversed in Phase V.</strong> The 7-day rolling BM average bottomed at Day 26 (18.6/day) and has risen every day since. Comparing Phase IV (D23–D27) to Phase V (D28–D33), the BM rate rose roughly 74% — from 19.0 to 27.8 launches per day. The drone rate rose 34%. This is not what running out of ammunition looks like. It is what reconstitution and operational adaptation look like.</div>
+    </div>
+
+    <p>The CENTCOM “92% decline” figure was technically accurate when it was issued. It compared Phase I (148.7 BMs/day) to the bottom of Phase IV (~12 BMs/day on the lowest days). What it concealed was that the floor was already lifting by the time the figure was published. The narrative bought time for a battlefield assessment that the data was already invalidating.</p>
+  </section>
+
+  <!-- SECTION 3: SRBM vs MRBM - THE KEY DISTINCTION -->
+  <section class="fade-in">
+    <div class="section-num">Section 03 — The Distinction That Explains Everything</div>
+    <h2>Two missile populations. <em>Only one is being targeted.</em></h2>
+    <p class="lead">The single most consequential analytical error in the public discourse is conflating two entirely separate Iranian weapon populations. The CENTCOM claim of “70% of launchers destroyed” and the IDF launcher-destruction campaign apply almost exclusively to the medium-range ballistic missile population that targets Israel. They do not apply to the short-range fleet attacking the Gulf.</p>
+
+    <div class="comparison-table">
+      <div class="comp-header">
+        <div class="comp-col-head srbm">
+          <div class="comp-tag">SRBM</div>
+          <div class="comp-name">Short-Range · <em>The Gulf Fleet</em></div>
+        </div>
+        <div class="comp-col-head mrbm">
+          <div class="comp-tag">MRBM</div>
+          <div class="comp-name">Medium-Range · <em>The Israel Fleet</em></div>
+        </div>
+      </div>
+
+      <div class="comp-row">
+        <div class="comp-label">Range</div>
+        <div class="comp-cell srbm-cell"><span class="big">200–800 km</span>Fateh-110, Fateh-313, Zolfaghar, Qiam-1, Scud derivatives</div>
+        <div class="comp-cell"><span class="big">1,000–2,000+ km</span>Shahab-3, Ghadr, Emad, Sejjil-2, Khorramshahr, Kheibar Shekan, Fattah</div>
+      </div>
+
+      <div class="comp-row">
+        <div class="comp-label">Targets</div>
+        <div class="comp-cell srbm-cell">All six GCC states · US bases in the Gulf · Jordan</div>
+        <div class="comp-cell">Israel · Diego Garcia · distant strategic targets</div>
+      </div>
+
+      <div class="comp-row">
+        <div class="comp-label">Pre-War Stock</div>
+        <div class="comp-cell srbm-cell"><span class="big">5,000–8,000+</span>Iran exported hundreds of Fateh-110 equivalents to Hezbollah alone. Domestic stockpiles are an order of magnitude larger.</div>
+        <div class="comp-cell"><span class="big">~1,500–2,500</span>IDF estimate, February 2026. Alma Research notes the figure’s ambiguity — it may refer only to Israel-capable warheads.</div>
+      </div>
+
+      <div class="comp-row">
+        <div class="comp-label">Launcher Type</div>
+        <div class="comp-cell srbm-cell">Simple angled rail mounted on a standard truck. Launches from anywhere, relocates immediately. Effectively impossible to map from the air.</div>
+        <div class="comp-cell">Large 8×8 and 10×10 transporter-erector launchers. Visible in satellite imagery. Semi-fixed launch pads with prepared infrastructure.</div>
+      </div>
+
+      <div class="comp-row">
+        <div class="comp-label">Targeted by US/Israel?</div>
+        <div class="comp-cell srbm-cell"><strong>No.</strong> Not the primary target of the launcher-destruction campaign. Too dispersed, too small, too cheap to find and kill at scale.</div>
+        <div class="comp-cell"><strong>Yes.</strong> IDF reported 330 of approximately 470 targeted MRBM launchers destroyed or disabled by Day 24. This is the source of the “70% destroyed” figure.</div>
+      </div>
+    </div>
+
+    <div class="callout gold">
+      <div class="callout-mark">◊</div>
+      <div class="callout-body"><strong>Read this carefully.</strong> The 2,500-missile figure cited in nearly every public discussion refers primarily to MRBMs — the missiles capable of reaching Israel. Iran's SRBM fleet is a separate, much larger population. The Fateh family alone was produced in quantities sufficient for Iran to export hundreds to Hezbollah as a proxy force. CENTCOM's own 2022 estimate was “over 3,000 ballistic missiles of all ranges” — and the Iranian programme has expanded substantially since then. The realistic SRBM stockpile is in the range of <strong>5,000 to 8,000 rounds</strong>, much of it stored in underground facilities that survived the 12-Day War of June 2025 and the current campaign.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: WHY THE NARRATIVE BROKE -->
+  <section class="fade-in">
+    <div class="section-num">Section 04 — Why the Narrative Broke</div>
+    <h2>Three errors compounded <em>into one delusion.</em></h2>
+    <p class="lead">The Western public assessment of Iran's missile force was not built on a single mistake. It was built on three separate analytical errors that reinforced each other — and the operational data of the past ten days has now exposed all three simultaneously.</p>
+
+    <h3>Error One — Conflating Two Inventories</h3>
+    <p>The MRBM and SRBM populations were treated as a single number. When IDF launcher strikes destroyed roughly 330 of approximately 470 targeted Israel-range launchers, the resulting “70%” figure was applied to the entire Iranian missile force. It was never true of the SRBMs. The Fateh, Zolfaghar, and Qiam launchers attacking Gulf states were never the focus of the launcher-destruction campaign and remain largely intact.</p>
+
+    <h3>Error Two — Mistaking the Trough for the Trend</h3>
+    <p>The CENTCOM “decline” figure was anchored to the lowest observed launch days — the bottom of Phase IV — rather than to a rolling average. A statistic that is technically accurate at the moment of measurement can mislead about the direction of travel. The seven-day rolling BM average has now risen for nine consecutive days. The trough was not a baseline. It was an inflection point.</p>
+
+    <h3>Error Three — Confusing Stockpile with Production</h3>
+    <p>Public commentary repeatedly framed Iran's missile expenditure as drawdown from a fixed warehouse. But Iran's SRBM production is partially dispersed and partially underground. The June 2025 strikes did not eliminate Fateh production, and the February 2026 strikes have damaged but not destroyed it. A campaign that consumes 25 SRBMs per day from a stockpile of 5,000+ rounds, while production continues at any meaningful rate, has runway measured in <em>months</em> — not weeks.</p>
+  </section>
+
+  <!-- SECTION 5: WHAT IT MEANS -->
+  <section class="fade-in">
+    <div class="section-num">Section 05 — What the Data Actually Implies</div>
+    <h2>The arithmetic does not say what Washington <em>says it says.</em></h2>
+
+    <ol class="takeaway-list">
+      <li><strong>The Phase V resurgence is almost certainly SRBM-driven.</strong> The MRBM force was always smaller and was systematically targeted. The rebound from 18.6 to 27.8 BMs per day cannot be coming from the missile category that has actually been hunted. By process of elimination, the launches sustaining the curve are Fateh-family and Zolfaghar-class short-range systems aimed at Gulf targets.</li>
+      <li><strong>Iran has runway. The defenders do not.</strong> Iran is firing roughly 25 SRBMs per day from a stockpile likely in the thousands. The defenders are firing roughly 60 to 90 Patriot interceptors per day from a sovereign GCC stock that is 86% depleted. The cost asymmetry is the wrong way around: the cheaper, more numerous weapon is held by the attacker; the scarcer, more expensive weapon is held by the defender.</li>
+      <li><strong>The CENTCOM “decline” figure was a snapshot of the trough, not a description of the trajectory.</strong> Communicated as a trend, it was not. The 7-day rolling average has risen for nine consecutive days. Any policy decision anchored to the “90% destroyed” framing is now operating on stale information.</li>
+      <li><strong>The June 2025 12-Day War proved the point in advance.</strong> After that conflict, Iran was widely assessed as having had its missile and nuclear programmes set back by years. Eight months later it launched the largest sustained ballistic missile campaign in modern history. The pattern that should have been learned from June 2025 is the pattern still being missed in April 2026: <em>Iranian missile recovery is faster than Western assessments assume, every single time.</em></li>
+      <li><strong>The narrative gap is itself an operational variable.</strong> If US and allied decision-makers are operating on the “Iran is finished” framing, they will set deadlines, threats, and ceasefire terms calibrated to a missile force that does not exist. The mismatch between the assumed and actual Iranian capability is precisely the kind of intelligence failure that produces escalation by miscalculation.</li>
+    </ol>
+  </section>
+
+  <!-- SECTION 6: VERDICT -->
+  <section class="fade-in">
+    <div class="section-num">Section 06 — The Brief in One Sentence</div>
+    <h2>The bottom line.</h2>
+
+    <div class="verdict-box">
+      <div class="verdict-label">Fact Brief Conclusion</div>
+      <p class="verdict-text">The Western narrative that Iran's ballistic missile force has been “destroyed” or “just about used up” conflates the targeted MRBM fleet with the much larger, untargeted SRBM fleet — and reads the trough of the daily curve as if it were the trend. The actual operational data shows <em>1,725+ ballistic missiles fired in 38 days</em>, a sustained floor of <em>20+ launches per day</em>, and a sharp resurgence in late March that is still climbing. Iran's short-range stockpile, estimated at 5,000 to 8,000 rounds before the war, has runway measured in months. The defenders' interceptor stockpile does not.</p>
+    </div>
+
+    <div class="callout danger">
+      <div class="callout-mark">×</div>
+      <div class="callout-body"><strong>What this brief is not:</strong> a defence of the Iranian regime, a celebration of the missile programme, or a prediction about how the war ends. It is a correction to a factual claim that is shaping policy and public expectations on the basis of inaccurate inventory accounting. The arithmetic matters because the people making decisions are using it.</div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <p><a href="https://t.me/unmitigated_wisdom" target="_blank">t.me/unmitigated_wisdom</a></p>
+    <p>Fact Brief Series · Iran War Operational Data</p>
+    <p>Sources: UAE MoD · Alma Research · CTP-ISW · INSS · CSIS · RUSI · JINSA</p>
+  </div>
+</div>
+
+<script>
+// Daily data D1-D38
+const dates = ['Feb28','Mar1','Mar2','Mar3','Mar4','Mar5','Mar6','Mar7','Mar8','Mar9','Mar10','Mar11','Mar12','Mar13','Mar14','Mar15','Mar16','Mar17','Mar18','Mar19','Mar20','Mar21','Mar22','Mar23','Mar24','Mar25','Mar26','Mar27','Mar28','Mar29','Mar30','Mar31','Apr1','Apr2','Apr3','Apr4','Apr5','Apr6'];
+const DAILY_BM = [503,98,89,87,54,61,74,36,37,53,30,27,40,29,29,23,22,28,56,25,18,23,17,23,19,8,22,25,43,20,32,30,17,19,26,35,18,20];
+const DAILY_DR = [577,487,251,211,214,268,150,137,155,48,61,42,67,156,131,88,135,49,132,70,57,67,62,84,45,20,35,30,87,54,53,63,50,26,73,79,77,33];
+
+const rolling7 = DAILY_BM.map((v,i) => {
+  if(i<6) return null;
+  return parseFloat((DAILY_BM.slice(i-6,i+1).reduce((a,b)=>a+b)/7).toFixed(1));
+});
+
+const ctx = document.getElementById('dailyChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: [
+      {
+        label: 'Ballistic Missiles',
+        data: DAILY_BM,
+        backgroundColor: '#d4493d',
+        borderColor: '#d4493d',
+        stack: 'A',
+        order: 2
+      },
+      {
+        label: 'Drones / UAVs',
+        data: DAILY_DR,
+        backgroundColor: '#6b8aa8',
+        borderColor: '#6b8aa8',
+        stack: 'A',
+        order: 2
+      },
+      {
+        label: '7-Day Rolling BM Average',
+        data: rolling7,
+        type: 'line',
+        borderColor: '#d4a03c',
+        backgroundColor: 'transparent',
+        borderWidth: 2.5,
+        pointRadius: 2,
+        pointBackgroundColor: '#d4a03c',
+        fill: false,
+        tension: 0.4,
+        order: 1
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: '#9c9a92',
+          font: { family: "'JetBrains Mono', monospace", size: 11 },
+          boxWidth: 14,
+          padding: 18,
+          usePointStyle: false
+        }
+      },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        backgroundColor: '#16161c',
+        borderColor: '#28282f',
+        borderWidth: 1,
+        titleColor: '#ebe8e1',
+        bodyColor: '#9c9a92',
+        titleFont: { family: "'JetBrains Mono', monospace" },
+        bodyFont: { family: "'Inter', sans-serif" }
+      }
+    },
+    scales: {
+      x: {
+        stacked: true,
+        ticks: {
+          color: '#5a5854',
+          font: { family: "'JetBrains Mono', monospace", size: 9 },
+          maxRotation: 90
+        },
+        grid: { color: 'rgba(255,255,255,0.03)' }
+      },
+      y: {
+        stacked: true,
+        ticks: {
+          color: '#5a5854',
+          font: { family: "'JetBrains Mono', monospace", size: 10 }
+        },
+        grid: { color: 'rgba(255,255,255,0.05)' }
+      }
+    },
+    interaction: { mode: 'index', intersect: false }
+  }
+});
+
+// Scroll fade-in
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, { threshold: 0.08 });
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+</script>
+
+
+</body></html>
