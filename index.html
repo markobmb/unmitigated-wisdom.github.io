@@ -5,410 +5,166 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Unmitigated Wisdom — Predictions, Ledgers, and Analysis</title>
 <meta name="description" content="A prediction ledger and analytical archive on geopolitics, markets, and conflict. Forecasts with sources, scoring, and receipts.">
-<style>
-:root {
-  --bg: #fafaf7;
-  --fg: #1a1a1a;
-  --muted: #6b6b6b;
-  --accent: #b8342f;
-  --border: #e5e2d9;
-  --card: #ffffff;
-  --soft: #f4f1e8;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body {
-  font-family: ui-serif, Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
-  background: var(--bg);
-  color: var(--fg);
-  line-height: 1.65;
-  font-size: 17px;
-  -webkit-font-smoothing: antialiased;
-}
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-
-.wrap { max-width: 860px; margin: 0 auto; padding: 56px 24px 100px; }
-
-/* ---- NAV ---- */
-nav.top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--border);
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.88rem;
-}
-nav.top .brand {
-  display: inline-flex;
-  align-items: center;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--fg);
-  line-height: 0;
-}
-nav.top .brand img { display: block; height: 36px; width: auto; }
-nav.top .brand:hover { text-decoration: none; }
-nav.top ul { list-style: none; display: flex; gap: 22px; margin: 0; padding: 0; }
-nav.top ul a { color: var(--muted); }
-nav.top ul a:hover { color: var(--accent); text-decoration: none; }
-nav.top ul a.disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* ---- HERO ---- */
-header.hero {
-  padding: 70px 0 50px;
-  border-bottom: 2px solid var(--fg);
-  margin-bottom: 48px;
-}
-header.hero h1 {
-  font-size: 3.2rem;
-  margin: 0 0 14px;
-  letter-spacing: -0.015em;
-  line-height: 1.1;
-}
-header.hero .tagline {
-  font-style: italic;
-  color: var(--muted);
-  font-size: 1.15rem;
-  margin: 0 0 28px;
-  max-width: 640px;
-}
-header.hero .cta {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.9rem;
-}
-header.hero .cta a {
-  display: inline-block;
-  padding: 10px 18px;
-  border: 1px solid var(--fg);
-  border-radius: 3px;
-  font-weight: 600;
-  color: var(--fg);
-}
-header.hero .cta a.primary {
-  background: var(--fg);
-  color: var(--bg);
-}
-header.hero .cta a.primary:hover { background: var(--accent); border-color: var(--accent); text-decoration: none; }
-header.hero .cta a:hover { text-decoration: none; background: var(--soft); }
-
-/* ---- STATS STRIP ---- */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  margin-bottom: 56px;
-  overflow: hidden;
-}
-.stat {
-  padding: 22px 18px;
-  text-align: center;
-  border-right: 1px solid var(--border);
-}
-.stat:last-child { border-right: none; }
-.stat .num {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--accent);
-  display: block;
-  line-height: 1;
-  margin-bottom: 6px;
-}
-.stat .label {
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-
-/* ---- SECTIONS ---- */
-section { margin-bottom: 56px; }
-section h2 {
-  font-size: 1.5rem;
-  margin: 0 0 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-  letter-spacing: -0.01em;
-}
-section p { margin: 0 0 14px; }
-
-/* ---- CARDS GRID ---- */
-.cards {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 18px;
-}
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 22px 24px;
-  transition: border-color 0.15s, transform 0.15s;
-}
-.card:hover { border-color: var(--fg); }
-.card h3 {
-  margin: 0 0 8px;
-  font-size: 1.1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.card h3 .tag {
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  background: var(--soft);
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-weight: 600;
-}
-.card h3 .tag.live { color: var(--accent); background: #fbeceb; }
-.card p { font-size: 0.93rem; color: var(--muted); margin: 0 0 12px; }
-.card a.more {
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-/* ---- REPORTS LIST ---- */
-.reports-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.reports-list li {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-}
-.reports-list li:last-child { border-bottom: none; }
-.reports-list li a {
-  color: var(--fg);
-  font-weight: 500;
-  flex: 1;
-}
-.reports-list li a:hover { color: var(--accent); text-decoration: none; }
-.reports-list li time {
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.8rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.reports-list .kind {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 7px;
-  border-radius: 3px;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  background: var(--soft);
-  vertical-align: middle;
-}
-
-/* ---- METHODOLOGY ---- */
-.method {
-  background: var(--card);
-  border-left: 3px solid var(--accent);
-  padding: 20px 26px;
-  font-size: 0.95rem;
-}
-.method ul { margin: 10px 0 0; padding-left: 20px; }
-.method li { margin: 4px 0; }
-
-/* ---- SOCIAL ---- */
-.social-list {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.9rem;
-}
-.social-list a {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--fg);
-  background: var(--card);
-}
-.social-list a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-.social-list a.soon { opacity: 0.55; cursor: default; }
-.social-list a.soon:hover { border-color: var(--border); color: var(--fg); }
-.social-list .dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--accent); display: inline-block;
-}
-.social-list .soon .dot { background: #c9c4b3; }
-
-/* ---- FOOTER ---- */
-footer.site {
-  margin-top: 70px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-}
-footer.site em { font-family: ui-serif, Georgia, serif; }
-
-@media (max-width: 680px) {
-  .wrap { padding: 28px 16px 70px; }
-  header.hero { padding: 40px 0 32px; }
-  header.hero h1 { font-size: 2.2rem; }
-  header.hero .tagline { font-size: 1rem; }
-  .stats { grid-template-columns: repeat(2, 1fr); }
-  .stat:nth-child(2) { border-right: none; }
-  .stat:nth-child(1), .stat:nth-child(2) { border-bottom: 1px solid var(--border); }
-  .cards { grid-template-columns: 1fr; }
-  nav.top ul { gap: 14px; }
-}
-</style>
+<link rel="stylesheet" href="site.css">
 </head>
 <body>
 <div class="wrap">
 
   <nav class="top">
-    <a class="brand" href="#" aria-label="Unmitigated Wisdom">
+    <a class="brand" href="index.html" aria-label="Unmitigated Wisdom">
       <img src="logos/07_strict_monotonic_site_accent_split.svg" alt="Unmitigated Wisdom">
     </a>
     <ul>
-      <li><a href="#about">About</a></li>
-      <li><a href="ledger.html">Our Ledger</a></li>
+      <li><a href="index.html" aria-current="page">Home</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="ledger.html">Ledger</a></li>
       <li><a href="mixture-of-experts.html">Mixture of Experts</a></li>
-      <li><a href="#reports">Reports</a></li>
-      <li><a href="#connect">Connect</a></li>
+      <li><a href="reports.html">Reports</a></li>
     </ul>
   </nav>
 
-  <header class="hero">
-    <h1>Unmitigated Wisdom</h1>
+  <header class="hero centered">
+    <img class="hero-logo" src="logos/07_strict_monotonic_site_accent_split.svg" alt="" aria-hidden="true">
+    <h1>Unmitigated <em>Wisdom</em></h1>
+    <p class="kicker">ground truth → forecasting the future</p>
     <p class="tagline">A prediction ledger on geopolitics, markets, and conflict — forecasts with sources, scoring, and receipts.</p>
     <div class="cta">
-      <a class="primary" href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener">Read on Telegram →</a>
-      <a href="#about">What is this?</a>
+      <a class="primary" href="ledger.html">Read the ledger →</a>
+      <a href="about.html">What is this?</a>
     </div>
   </header>
 
-  <div class="stats">
-    <div class="stat"><span class="num">2020</span><span class="label">Channel since</span></div>
-    <div class="stat"><span class="num">6 yrs</span><span class="label">Own track record</span></div>
-    <div class="stat"><span class="num">64</span><span class="label">Experts tracked*</span></div>
-    <div class="stat"><span class="num">501</span><span class="label">Predictions scored*</span></div>
-  </div>
-  <p style="font-size: 0.78rem; color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif; margin: -44px 0 56px; text-align: right;">* from the <a href="mixture-of-experts.html">Mixture of Experts</a> dataset</p>
-
-  <section id="about">
-    <h2>About</h2>
-    <p>Unmitigated Wisdom began in 2020 as an independent, insight-driven forecasting channel — a private record of falsifiable claims about the parts of the world most liable to break: great-power conflict, energy markets, nuclear thresholds, proxy wars, and the quiet structural trends underneath them. Over time it has grown into a mixture of original insight-based calls and formal expert-aggregation modelling (Bayesian scenario models, ordnance trackers, accuracy backtests).</p>
-    <p>Every post is a claim someone could be wrong about. Every claim is dated, sourced, and eventually scored. The point isn't cleverness; it's accountability — a public track record kept in the open.</p>
-  </section>
-
   <section>
-    <h2>What lives here</h2>
-    <div class="cards">
-      <div class="card">
-        <h3>Our Prediction Ledger <span class="tag">Coming soon</span></h3>
-        <p>The Unmitigated Wisdom ledger itself — every forecast made on the channel since 2020, threaded with follow-ups, resolutions, and scoring. Insight-based calls and model-driven ones, side by side.</p>
-        <a class="more" href="#">Preview →</a>
-      </div>
-      <div class="card">
-        <h3>Mixture of Experts <span class="tag live">Live</span></h3>
-        <p>Bayesian accuracy scoring across 64 outside analysts and 501 of their predictions, with dual-source citations and debiasing. Used as an input to our own modelling.</p>
-        <a class="more" href="mixture-of-experts.html">Browse the dataset →</a>
-      </div>
-      <div class="card">
-        <h3>Long-form Articles <span class="tag">Coming soon</span></h3>
-        <p>Assessments, scenario models, and methodology notes — written up in full, with the math and the sources visible.</p>
-        <a class="more" href="#">Read →</a>
-      </div>
-      <div class="card">
-        <h3>Reports <span class="tag live">Live</span></h3>
-        <p>Long-form analyses — daily ordnance trackers, Bayesian scenario models, nuclear-threshold assessments — archived in browser-readable form.</p>
-        <a class="more" href="#reports">Read →</a>
-      </div>
-    </div>
-  </section>
-
-  <section id="reports">
-    <h2>Reports</h2>
-    <p>Long-form analyses originally posted to the Telegram channel, archived here in browser-readable form.</p>
-    <ul class="reports-list">
-        <li><a href="posts/ceasefire_is_not_peace.html">Ceasefire Is Not Peace <span class="kind">PDF</span></a><time datetime="2026-04-16">16 Apr 2026</time></li>
-        <li><a href="posts/a5a2b2e0-787c-43d3-878b-554cf509ac1c.html">Bargaining in the Shadow of a Ceasefire — Unmitigated Wisdom</a><time datetime="2026-04-11">11 Apr 2026</time></li>
-        <li><a href="posts/8a55ae9b-ec91-40ba-9968-27e190956363.html">The Missile That Wasn&#x27;t Destroyed — Iran SRBM Fact Brief</a><time datetime="2026-04-06">6 Apr 2026</time></li>
-        <li><a href="posts/976fb517-fc7c-4449-afe0-014eb0533899.html">The Labyrinth of Bad Options — April 7 Escalation Window</a><time datetime="2026-04-06">6 Apr 2026</time></li>
-        <li><a href="posts/12024222-8ebc-4e9a-81fb-8db7598f4490.html">Critical Infrastructure Escalation Analysis — Iran Critical Civilian Infrastructure</a><time datetime="2026-04-04">4 Apr 2026</time></li>
-        <li><a href="posts/da975520-bf35-4c71-a457-9289db15b22c.html">Structural Forecast Briefing — 2026 Iran War</a><time datetime="2026-04-02">2 Apr 2026</time></li>
-        <li><a href="posts/747fd16f-2d22-4532-ad84-e0c5b816ea46.html">How Does the Iran War End — and What Happens Along the Way?</a><time datetime="2026-03-24">24 Mar 2026</time></li>
-        <li><a href="posts/a6954639-dc04-4def-a396-b1fd4999d658.html">Operation Epic Fury — Day 25 Situation Report | Unmitigated Wisdom</a><time datetime="2026-03-24">24 Mar 2026</time></li>
-        <li><a href="posts/d27efe1e-be19-470d-bdb8-5e17b91c29c9.html">Expert Prediction Ledger Bayesian accuracy scoring across 64 analysts and 501 geopolitical forecasts</a><time datetime="2026-03-24">24 Mar 2026</time></li>
-        <li><a href="posts/Iran_DailyCount_ByCountry_v8.html">Iran Daily Count By Country (v8) <span class="kind">PDF</span></a><time datetime="2026-03-21">21 Mar 2026</time></li>
-        <li><a href="posts/Iran_Oil_Special_Report.html">Iran Oil Special Report <span class="kind">PDF</span></a><time datetime="2026-03-19">19 Mar 2026</time></li>
-        <li><a href="posts/75d19694-5f07-42f2-83d5-be7b47be3d11.html">Operation Epic Fury — Day 19 Assessment</a><time datetime="2026-03-18">18 Mar 2026</time></li>
-        <li><a href="posts/Iran_War_Complete_Day18.html">Iran War Complete Day 18 <span class="kind">PDF</span></a><time datetime="2026-03-18">18 Mar 2026</time></li>
-        <li><a href="posts/Iran_War_Complete_Day19.html">Iran War Complete Day 19 <span class="kind">PDF</span></a><time datetime="2026-03-18">18 Mar 2026</time></li>
-        <li><a href="posts/Ground_Troops_Iran_Probability_Assessment_v3.html">Ground Troops Iran Probability Assessment (v3) <span class="kind">PDF</span></a><time datetime="2026-03-16">16 Mar 2026</time></li>
-        <li><a href="posts/Nuclear_Threshold_Assessment_Day15.html">Nuclear Threshold Assessment Day 15 <span class="kind">PDF</span></a><time datetime="2026-03-16">16 Mar 2026</time></li>
-        <li><a href="posts/4d68c322-5eb1-4c48-96b2-d1963f9ee07a.html">Operation Epic Fury — Day 16 Assessment</a><time datetime="2026-03-16">16 Mar 2026</time></li>
-        <li><a href="posts/Iran_War_Complete_Day16_v2.html">Iran War Complete Day 16 (v2) <span class="kind">PDF</span></a><time datetime="2026-03-16">16 Mar 2026</time></li>
-        <li><a href="posts/0568b6f0-aed1-4f28-b5c1-a13ace090f87.html">Operation Epic Fury — Day 15 Assessment</a><time datetime="2026-03-15">15 Mar 2026</time></li>
-        <li><a href="posts/Iran_War_Complete_Day15.html">Iran War Complete Day 15 <span class="kind">PDF</span></a><time datetime="2026-03-15">15 Mar 2026</time></li>
-        <li><a href="posts/Iran_War_Complete_Day14_v2.html">Iran War Complete Day 14 (v2) <span class="kind">PDF</span></a><time datetime="2026-03-13">13 Mar 2026</time></li>
-        <li><a href="posts/3997258c-bea1-4866-8be4-614c98ba4bb6.html">Operation Epic Fury — Day 14 Assessment (v2)</a><time datetime="2026-03-13">13 Mar 2026</time></li>
-        <li><a href="posts/89591b44-c267-4f77-8274-2c252d426722.html">Operation Epic Fury — Day 13 Assessment</a><time datetime="2026-03-11">11 Mar 2026</time></li>
-        <li><a href="posts/Iran_War_Assessment_Day13_v1.html">Iran War Assessment Day 13 (v1) <span class="kind">PDF</span></a><time datetime="2026-03-11">11 Mar 2026</time></li>
-        <li><a href="posts/Iran_War_Assessment_Day10_v2.html">Iran War Assessment Day 10 (v2) <span class="kind">PDF</span></a><time datetime="2026-03-09">9 Mar 2026</time></li>
-        <li><a href="posts/Bayesian_15Expert_Report.html">Bayesian 15 Expert Report <span class="kind">PDF</span></a><time datetime="2026-03-03">3 Mar 2026</time></li>
-        <li><a href="posts/Iran_Succession_Bayesian_Expert_Report_v2.html">Iran Succession Bayesian Expert Report (v2) <span class="kind">PDF</span></a><time datetime="2026-03-03">3 Mar 2026</time></li>
-        <li><a href="posts/Who_Should_We_Believe_About_Iran.html">Who Should We Believe About Iran <span class="kind">PDF</span></a><time datetime="2026-03-02">2 Mar 2026</time></li>
+    <h2>From the ledger</h2>
+    <p style="font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.92rem; color: var(--muted); margin: -8px 0 18px;">Top-level predictions, newest first. Each links to the original Telegram post.</p>
+    <ul class="feed-list">
+      <li>
+        <time datetime="2026-03-07">7 Mar 2026</time>
+        <span class="summary">Very long-term prediction: currently, the public opinion of Republicans/MAGA base in US is very much in sync with Trump, consistent with the rally around the…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/89" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2026-03-03">3 Mar 2026</time>
+        <span class="summary">Bayesian expert aggregation on Iran&#x27;s supreme leader succession forecasting</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/83" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2026-03-01">1 Mar 2026</time>
+        <span class="summary">There is a very low likelihood of regime change as a result of bombing campaign in Iran. There has been zero instances of regime change by air campaigns alone…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/78" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2024-07-30">30 Jul 2024</time>
+        <span class="summary">The most likely VP candidate for Kamala Harris is likely to be Josh Shapiro. But the most important part of it is political considerations: He is a highly…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/77" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2022-03-26">26 Mar 2022</time>
+        <span class="summary">The ramifications of the Russian invasion of Ukrain will shake the world economy to its roots. The war has put the world economy on a path leading to even more…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/69" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2022-03-20">20 Mar 2022</time>
+        <span class="summary">It&#x27;s highly likely that Trump will run for reelection, and he will lose. The main reason Biden won was Trump himself, because voting Trump out of office was…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/68" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2021-11-03">3 Nov 2021</time>
+        <span class="summary">The fate of JCPOA is indirectly tied to democratic fortunes: without a solid Senate majority, Biden&#x27;s promises will fall short of legistlative assurances he…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/66" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2021-08-27">27 Aug 2021</time>
+        <span class="summary">It has been a particularly devastating month for democrats in Washington. The ISIS attack on US forces is foreign policy nightmare every president want to…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/63" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2021-07-29">29 Jul 2021</time>
+        <span class="summary">US senate has indicated that it&#x27;s close to a deal on infrastructure that will pump ~1T $ into industrial, broadband and communication sectors. This will push…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/57" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2021-06-17">17 Jun 2021</time>
+        <span class="summary">I&#x27;ve been long worried about a &quot;smart Trump&quot;. Someone possessing all his strengths, his unabashed &amp; authentic style, without any of his vulnerabilities. And I…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/54" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2021-05-27">27 May 2021</time>
+        <span class="summary">I will start to write more on energy, particularly about the transition to renewable energies and what it implies for industries and markets. There was never…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/53" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2021-02-22">22 Feb 2021</time>
+        <span class="summary">A cautious prediction: Price of BTC and other cryptocurrencies will experience a correction sooner or later (emphasis on sooner): major players enjoy the…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/50" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-07-10">10 Jul 2020</time>
+        <span class="summary">Without extension of the unemployment benefits of the stimulus package, US economic recovery may be derailed, but the looming elections may stop congress from…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/43" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-05-25">25 May 2020</time>
+        <span class="summary">The unemployment statistics show that around 90% of the unemployment statistics reflect the temporary loss of jobs, so in the next 1-2 month, many business…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/30" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-05-14">14 May 2020</time>
+        <span class="summary">Roche is a good mid-to-long term investment, because Genentech, a subsidiary of Roche, has hired Aviv Rajev and Mark McCarthy, two leading geneticists, signs…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/28" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-05-11">11 May 2020</time>
+        <span class="summary">Unemployment rate in US has hit its the highest on record, and seems to be on the rise. A solid majority of American electorate will simplify the complex…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/26" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-05-09">9 May 2020</time>
+        <span class="summary">If you&#x27;re looking for investments with 50%-80% returns for a 1-2 year window, oil and gas companies like Exxon are a safe bet: (1) the world economy WILL need…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/25" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-03-29">29 Mar 2020</time>
+        <span class="summary">Main indices (S&amp;P 500 &amp; Dowjones) will drop 5±3% when they open Monday morning, because (1) Markets have already absorbed any positive news about the stimulus…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/22" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-03-24">24 Mar 2020</time>
+        <span class="summary">Caution: people don&#x27;t eat money or get cured by stockpiling it, if the status quo persists for more than 6 months, the economies might collapse, unlikely but…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/17" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-03-20">20 Mar 2020</time>
+        <span class="summary">Senator Richard Burr will resign from his position</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/12" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-03-19">19 Mar 2020</time>
+        <span class="summary">There is an upcoming stimulus package in US, whatever they call it it&#x27;s a bailout, for the &quot;too big to fail&quot; corporations, they include Boing, Exxon, Chevron…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/10" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-03-18">18 Mar 2020</time>
+        <span class="summary">World&#x27;s GDP growth is likely to be near-zero or negative for 2020, the worst being European economies shrinking 2%-5%, and the best will be far eastern…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/9" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-03-14">14 Mar 2020</time>
+        <span class="summary">Despite the loss and suffering, we ought to learn an important lesson from the cronavirus outbreak: that if the boat sinks, we all sink with it. This is an…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/8" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-03-13">13 Mar 2020</time>
+        <span class="summary">Only theoretical frameworks that predict the future, can be taken seriously in describing the past. Following this thesis, this is channel is dedicated to…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/3" target="_blank" rel="noopener">Telegram →</a>
+      </li>
+      <li>
+        <time datetime="2020-03-13">13 Mar 2020</time>
+        <span class="summary">Wisdom of the day: in the short term, the stock markets will experience another big sell-off if the US death toll increases similar to Italy. But eventually…</span>
+        <a class="permalink" href="https://t.me/unmitigated_wisdom/6" target="_blank" rel="noopener">Telegram →</a>
+      </li>
     </ul>
-  </section>
-
-  <section>
-    <h2>Methodology</h2>
-    <div class="method">
-      Predictions are only counted when they meet four standards:
-      <ul>
-        <li><strong>Falsifiable</strong> — a concrete outcome that can be checked.</li>
-        <li><strong>Forward-looking</strong> — made before the event, not after.</li>
-        <li><strong>Specific</strong> — scoped enough to fail.</li>
-        <li><strong>Attributable</strong> — tied to a named source with a citation.</li>
-      </ul>
-    </div>
-  </section>
-
-  <section id="connect">
-    <h2>Connect</h2>
-    <p>The Telegram channel is the primary feed. Cross-posts and discussion are rolling out across other platforms.</p>
-    <div class="social-list">
-      <a href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener"><span class="dot"></span>Telegram</a>
-      <a href="https://x.com/UnmitigatedWis" target="_blank" rel="noopener"><span class="dot"></span>Twitter / X</a>
-      <a href="https://www.reddit.com/user/UnmitigatedWisdom/" target="_blank" rel="noopener"><span class="dot"></span>Reddit</a>
-      <a class="soon"><span class="dot"></span>RSS — soon</a>
-    </div>
+    <p class="more-link"><a href="ledger.html">See the full ledger with follow-ups and resolutions →</a></p>
   </section>
 
   <footer class="site">
