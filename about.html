@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>About · Unmitigated Wisdom</title>
 <meta name="description" content="What Unmitigated Wisdom is: a prediction ledger and analytical archive on geopolitics, markets, and conflict — forecasts with sources, scoring, and receipts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="site.css">
 </head>
 <body>
@@ -17,59 +20,68 @@
     <ul>
       <li><a href="index.html">Home</a></li>
       <li><a href="about.html" aria-current="page">About</a></li>
-      <li><a href="ledger.html">Ledger</a></li>
-      <li><a href="mixture-of-experts.html">Mixture of Experts</a></li>
+      <li><a href="ledger.html">Prediction Ledger</a></li>
+      <li><a href="mixture-of-experts.html">Expert Scoreboard</a></li>
       <li><a href="reports.html">Reports</a></li>
     </ul>
   </nav>
 
   <header class="hero slim">
     <h1>About</h1>
-    <p class="tagline">A prediction ledger on geopolitics, markets, and conflict — forecasts with sources, scoring, and receipts.</p>
+    <p class="tagline">A public prediction ledger on geopolitics, markets, and conflict — forecasts dated, sourced, and scored.</p>
   </header>
 
-  <div class="stats">
+  <div class="stats standalone">
     <div class="stat"><span class="num">2020</span><span class="label">Channel since</span></div>
     <div class="stat"><span class="num">6 yrs</span><span class="label">Own track record</span></div>
     <div class="stat"><span class="num">64</span><span class="label">Experts tracked*</span></div>
     <div class="stat"><span class="num">501</span><span class="label">Predictions scored*</span></div>
   </div>
-  <p style="font-size: 0.78rem; color: var(--muted); font-family: ui-sans-serif, system-ui, sans-serif; margin: -44px 0 56px; text-align: right;">* from the <a href="mixture-of-experts.html">Mixture of Experts</a> dataset</p>
+  <p class="stats-footnote">* from the <a href="mixture-of-experts.html">Expert Scoreboard</a> dataset</p>
 
   <section id="about">
-    <h2>What this is</h2>
-    <p>Unmitigated Wisdom began in 2020 as an independent, insight-driven forecasting channel — a private record of falsifiable claims about the parts of the world most liable to break: great-power conflict, energy markets, nuclear thresholds, proxy wars, and the quiet structural trends underneath them. Over time it has grown into a mixture of original insight-based calls and formal expert-aggregation modelling (Bayesian scenario models, ordnance trackers, accuracy backtests).</p>
-    <p>Every post is a claim someone could be wrong about. Every claim is dated, sourced, and eventually scored. The point isn't cleverness; it's accountability — a public track record kept in the open.</p>
+    <div class="section-head">
+      <h2>What this site is</h2>
+      <p class="eyebrow">Why it exists</p>
+    </div>
+    <p>Most commentary on geopolitics and markets is unfalsifiable by design — vague enough to never be wrong, hedged enough to never be measured. Unmitigated Wisdom was started in 2020 on the opposite premise: every claim worth making is a claim someone could be wrong about, and the only honest way to build authority over time is to put forecasts in writing, date them, source them, and let events do the scoring.</p>
+    <p>Six years on, the project has grown from a single Telegram feed of falsifiable calls into a small analytical operation: original insight-driven forecasts on the channel, formal Bayesian scenario models on the report side, and a public scoreboard tracking how 64 outside analysts have done on 501 of their own predictions. Everything is kept in the open. Nothing is quietly deleted.</p>
   </section>
 
   <section>
-    <h2>What lives here</h2>
-    <div class="cards">
+    <div class="section-head">
+      <h2>What you'll find here</h2>
+      <p class="eyebrow">Sections</p>
+    </div>
+    <div class="cards equal-4">
       <div class="card">
-        <h3>Our Prediction Ledger <span class="tag live">Live</span></h3>
-        <p>The Unmitigated Wisdom ledger itself — every forecast made on the channel since 2020, threaded with follow-ups, resolutions, and scoring. Insight-based calls and model-driven ones, side by side.</p>
+        <h3>Prediction Ledger <span class="tag live">Live</span></h3>
+        <p>Every public call from the channel since March 2020 — threaded with follow-ups, validations, and resolutions.</p>
         <a class="more" href="ledger.html">Read the ledger →</a>
       </div>
       <div class="card">
-        <h3>Mixture of Experts <span class="tag live">Live</span></h3>
-        <p>Bayesian accuracy scoring across 64 outside analysts and 501 of their predictions, with dual-source citations and debiasing. Used as an input to our own modelling.</p>
-        <a class="more" href="mixture-of-experts.html">Browse the dataset →</a>
-      </div>
-      <div class="card">
-        <h3>Long-form Articles <span class="tag">Coming soon</span></h3>
-        <p>Assessments, scenario models, and methodology notes — written up in full, with the math and the sources visible.</p>
-        <a class="more" href="#">Read →</a>
+        <h3>Expert Scoreboard <span class="tag live">Live</span></h3>
+        <p>A Bayesian-scored leaderboard of 64 outside analysts and 501 of their predictions, with dual-source citations.</p>
+        <a class="more" href="mixture-of-experts.html">Browse the scoreboard →</a>
       </div>
       <div class="card">
         <h3>Reports <span class="tag live">Live</span></h3>
-        <p>Long-form analyses — daily ordnance trackers, Bayesian scenario models, nuclear-threshold assessments — archived in browser-readable form.</p>
+        <p>Long-form analyses — daily ordnance trackers, Bayesian scenario models, nuclear-threshold assessments.</p>
         <a class="more" href="reports.html">Browse the reports →</a>
+      </div>
+      <div class="card">
+        <h3>Long-form Articles <span class="tag">Coming soon</span></h3>
+        <p>Standalone essays and methodology notes — formal write-ups of how the models are built and where they break.</p>
+        <a class="more" href="#">Read →</a>
       </div>
     </div>
   </section>
 
   <section>
-    <h2>Methodology</h2>
+    <div class="section-head">
+      <h2>Methodology</h2>
+      <p class="eyebrow">What counts as a prediction</p>
+    </div>
     <div class="method">
       Predictions are only counted when they meet four standards:
       <ul>
@@ -82,7 +94,10 @@
   </section>
 
   <section id="connect">
-    <h2>Connect</h2>
+    <div class="section-head">
+      <h2>Connect</h2>
+      <p class="eyebrow">Channels</p>
+    </div>
     <p>The Telegram channel is the primary feed. Cross-posts and discussion are rolling out across other platforms.</p>
     <div class="social-list">
       <a href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener"><span class="dot"></span>Telegram</a>
@@ -93,7 +108,19 @@
   </section>
 
   <footer class="site">
-    © 2020–2026 Unmitigated Wisdom · <em>only theoretical frameworks that predict the future can be taken seriously in describing the past.</em>
+    <div class="foot-line-1">
+      <span>© 2020–2026 Unmitigated Wisdom</span>
+      <span class="sep">·</span>
+      <a href="https://t.me/unmitigated_wisdom" target="_blank" rel="noopener">Telegram</a>
+      <span class="sep">·</span>
+      <a href="https://x.com/UnmitigatedWis" target="_blank" rel="noopener">X</a>
+      <span class="sep">·</span>
+      <a href="https://www.reddit.com/user/UnmitigatedWisdom/" target="_blank" rel="noopener">Reddit</a>
+    </div>
+    <blockquote class="foot-credo">
+      <p>&ldquo;Only theoretical frameworks that predict the future can be taken seriously in describing the past.&rdquo;</p>
+    </blockquote>
+    <p class="foot-copy">© 2020–2026 Unmitigated Wisdom</p>
   </footer>
 
 </div>
